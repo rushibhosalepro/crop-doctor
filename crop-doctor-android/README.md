@@ -60,8 +60,9 @@ realme GT 7 Pro, Galaxy S25/S26. One day is enough for video + eval set.
 
 - Photos stay on the phone (Firestore holds metadata only). Firebase Storage
   is the next step, not this MVP.
-- Bundled sample leaf photos are AI-generated placeholders for one-tap demo.
-  Replace with field photos when available; the eval set must use real photos.
+- Bundled Spotted/Healthy samples are real field photos from eval/.
+  The Not-plant sample is still a placeholder until a real negative photo
+  is added; the eval set itself is real photos only.
 - No cloud follow-up chat (first on the cut list) — one-shot review only.
 - JSON is prompt-shaped + parsed, not KSP `@Generable` schemas yet. The
   parser falls back to `unclear`, never to a guess.

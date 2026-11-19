@@ -1,0 +1,88 @@
+package com.cropdoctor.app.data
+
+/**
+ * Safety-critical rules engine. Pure Kotlin, fully unit-tested (see
+ * RulesEngineTest). Contract enforced here:
+ * - Unvalidated rules may ESCALATE only. Nothing here reassures, clears a
+ *   case, names a disease, or instructs any chemical action.
+ * - Every proposal carries human-readable reasons. The worker confirms or
+ *   overrides; the app never has the last word on priority.
+ */
+object RulesEngine {
+
+    // Coverage intent only. Unknown crop => escalate. No thresholds here.
+    val coveredCrops = setOf("paddy", "wheat", "tomato")
+
+    fun propose(context: LeafContext, obs: FieldObservation): PriorityProposal {
+        // Not-a-case states first: no priority without a usable observation.
+        if (obs.subject == "not_plant") {
+            return PriorityProposal(
+                "standard_followup",
+                listOf("Not a plant. No case opened. Retake with a leaf photo."),
+                listOf("NOT_PLANT")
+            )
+        }
+        if (obs.subject == "unclear" || obs.photoQuality == "poor") {
+            return PriorityProposal(
+                "standard_followup",
+                listOf("Photo unusable. Retake a clear, close-up leaf photo."),
+                listOf("NEEDS_RETAKE")
+            )
+        }
+
+        val reasons = mutableListOf<String>()
+        val flags = mutableListOf<String>()
+        var prioritize = false
+
+        // R-RECENT-SPRAY: record + escalate. Never a chemical instruction.
+        // Source: safety contract (agronomy-free recency flag).
+        if (context.spray == "today" || context.spray == "this_week") {
+            prioritize = true
+            flags.add("RECENT_SPRAY")
+            reasons.add(
+                "Recent application recorded (${context.spray}). " +
+                    "Expert must review before any new recommendation."
+            )
+        }
+        // R-UNKNOWN-CROP: outside covered list => escalate.
+        if (context.crop !in coveredCrops) {
+            prioritize = true
+            flags.add("UNKNOWN_CROP")
+            reasons.add(
+                "Crop '${context.crop}' is outside the covered list " +
+                    "(paddy, wheat, tomato). Expert review required."
+            )
+        }
+        // R-LOW-INFO: too many unknowns => escalate, never guess.
+        val unsure = listOf(
+            context.watered, context.fertilizer, context.spray,
+            context.weather, context.stage, context.spread
+        ).count { it == "not_sure" }
+        if (unsure >= 4) {
+            prioritize = true
+            flags.add("LOW_INFO")
+            reasons.add("$unsure of 6 context answers unknown. Expert review required.")
+        }
+        // R-EXTENT: large visible extent => prioritize. UNVALIDATED threshold.
+        if (obs.extent == "large") {
+            prioritize = true
+            flags.add("LARGE_EXTENT")
+            reasons.add("Large visible extent reported. Prioritize expert review.")
+        }
+        // R-SPREAD: fast spread per worker report => prioritize. UNVALIDATED.
+        if (context.spread == "fast") {
+            prioritize = true
+            flags.add("FAST_SPREAD")
+            reasons.add("Spreading fast (worker report). Prioritize expert review.")
+        }
+
+        if (!prioritize) {
+            reasons.add("No escalation triggers. Worker confirms final priority.")
+        }
+        return PriorityProposal(
+            priority = if (prioritize) "prioritize_review" else "standard_followup",
+            reasons = reasons,
+            flags = flags
+        )
+    }
+}

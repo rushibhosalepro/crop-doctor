@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Crop Doctor</string>
+    <string name="helpline">Kisan Call Centre: 1800-180-1551 (toll-free, 6 AM–10 PM)</string>
+    <string name="disclaimer">AI guess — confirm with a local expert before spraying.</string>
+</resources>

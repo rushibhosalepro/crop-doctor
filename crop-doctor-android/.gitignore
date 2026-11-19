@@ -1,0 +1,16 @@
+# Gradle / Android Studio
+.gradle/
+.kotlin/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+
+# NEVER commit Firebase secrets or keys
+google-services.json
+app/google-services.json
+*.jks
+*.keystore
+debug-token.txt
+.env

@@ -8,3 +8,7 @@ web/dist/
 
 # Firebase CLI cache.
 .firebase/
+
+# Local screen recordings and scratch images, not part of the submission.
+images/
+generated_images/

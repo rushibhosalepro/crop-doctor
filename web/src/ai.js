@@ -4,7 +4,7 @@ export const TRIAGE_PROMPT =
   "You are a crop observation assistant. Describe ONLY what is visible. " +
   'Answer with ONLY this JSON, no other text: {"subject": one of plant|not_plant|unclear, ' +
   '"cropGuess": "crop name in one or two words if identifiable, else unknown", ' +
-  '"symptoms": "visible marks in plain words", "location": "where on the plant", ' +
+  '"symptoms": "visible marks in plain farmer words, max 8 words, e.g. yellow patches and small holes; no technical terms", "location": "where on the plant", ' +
   '"extent": one of none|small|moderate|large|unknown, ' +
   '"photoQuality": one of ok|poor, "notes": "anything uncertain"}. ' +
   "Rules: never name a disease or pest; never suggest treatment, severity, or urgency; " +

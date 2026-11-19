@@ -8,6 +8,7 @@ import {
   agreement,
   fileToDownscaled,
 } from "./ai.js";
+import { headline, ACTIONS, BADGES } from "./headline.js";
 
 const CROPS = [
   ["unknown", "Crop: Not sure"],
@@ -33,42 +34,15 @@ function Badge({ source }) {
   );
 }
 
-function headlineFor(obs, cloud) {
-  if (obs.subject === "not_plant") {
-    return { title: "Not a plant", detail: "Pick a leaf photo to open a case.", color: "#616161" };
-  }
-  if (obs.subject !== "plant" || obs.photoQuality === "poor") {
-    return { title: "Photo unclear", detail: "Retake a clear, close-up leaf photo.", color: "#616161" };
-  }
-  const clean =
-    (!obs.symptoms ||
-      ["none", "none.", "healthy"].includes(obs.symptoms.trim().toLowerCase()) ||
-      obs.symptoms.toLowerCase().startsWith("no visible")) &&
-    obs.extent === "none";
-  const agreed =
-    cloud && obs.subject === cloud.subject && obs.extent === cloud.extent &&
-    cloud.priority === "standard_followup";
-  if (clean && agreed) {
-    const cropLine =
-      obs.cropGuess && obs.cropGuess !== "unknown" ? ` This looks like ${obs.cropGuess}.` : "";
-    return {
-      title: "Looks healthy",
-      detail: `No problems seen in this photo. This is not a guarantee.${cropLine} Watch for spots, holes, curling, or white powder. Take a new photo in 3 days.`,
-      color: "#1B5E20",
-    };
-  }
-  if (obs.extent === "large") {
-    return {
-      title: "Needs expert review",
-      detail: "Large visible damage. Show to an expert before acting.",
-      color: "#B71C1C",
-    };
-  }
-  return {
-    title: "Case recorded",
-    detail: "Standard follow-up. Full rules live in the Android app.",
-    color: "#1B5E20",
-  };
+function Headline({ head }) {
+  const [label, color] = BADGES[head.severity];
+  return (
+    <div className="card" style={{ background: color + "1F" }}>
+      <span className="sev-badge" style={{ background: color }}>{label}</span>
+      <div style={{ fontSize: 22, fontWeight: "bold", color, marginTop: 6 }}>{head.issue}</div>
+      <div>{ACTIONS[head.severity]}</div>
+    </div>
+  );
 }
 
 export default function App() {
@@ -189,7 +163,7 @@ export default function App() {
     }
   }
 
-  const head = triage ? headlineFor(triage.obs, verify && verify.obs) : null;
+  const head = triage ? headline(triage.obs, verify && verify.obs, crop) : null;
   const level = triage && verify && verify.obs ? agreement(triage.obs, verify.obs) : "none";
   let agreeLine = "";
   if (verify && verify.obs) {
@@ -259,12 +233,7 @@ export default function App() {
 
       {error && <div className="err">{error}</div>}
 
-      {head && (
-        <div className="card">
-          <div style={{ fontSize: 22, fontWeight: "bold", color: head.color }}>{head.title}</div>
-          <div>{head.detail}</div>
-        </div>
-      )}
+      {head && <Headline head={head} />}
 
       {triage && (
         <div className="card">

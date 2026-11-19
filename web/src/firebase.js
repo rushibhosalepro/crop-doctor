@@ -45,6 +45,23 @@ const ON_DEVICE_PARAMS = {
   },
 };
 
+/**
+ * Real on-device status. The SDK can't be trusted for this: when the browser
+ * has no Prompt API (Edge, Firefox, old Chrome), it skips on-device setup
+ * silently, initializeDeviceModel() returns at once, and even ONLY_ON_DEVICE
+ * requests go to the cloud. Returns:
+ * "no_api" | "unavailable" | "downloadable" | "downloading" | "available".
+ */
+export async function onDeviceStatus() {
+  const LM = typeof self !== "undefined" ? self.LanguageModel : undefined;
+  if (!LM || typeof LM.availability !== "function") return "no_api";
+  try {
+    return await LM.availability(ON_DEVICE_PARAMS.createOptions);
+  } catch {
+    return "unavailable";
+  }
+}
+
 function hybrid(mode) {
   return { mode, inCloudParams: { model: CLOUD_MODEL }, onDeviceParams: ON_DEVICE_PARAMS };
 }

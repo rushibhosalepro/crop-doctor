@@ -15,8 +15,8 @@ export const VERIFY_PROMPT =
   "You are an expert crop reviewer. Analyze this leaf photo INDEPENDENTLY. " +
   'Answer with ONLY this JSON, no other text: {"subject": one of plant|not_plant|unclear, ' +
   '"extent": one of none|small|moderate|large|unknown, ' +
-  '"reviewNote": "2-3 lines for the extension worker", ' +
-  '"questionsForExpert": ["up to 3 questions"], ' +
+  '"reviewNote": "2-3 short lines in plain words a farmer understands, no technical terms like chlorosis or necrosis", ' +
+  '"questionsForExpert": ["up to 3 short questions a field worker can check on the spot, plain words"], ' +
   '"priority": one of prioritize_review|standard_followup}. ' +
   "Rules: never name a confirmed disease; never recommend chemicals, dosage, or spraying; " +
   "never say the case can be ignored; English only.";
@@ -34,6 +34,17 @@ export function withTimeout(promise, ms, label) {
     timer = setTimeout(() => reject(new Error(label + " timed out after " + ms / 1000 + "s.")), ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+export function contextText(ctx) {
+  return (
+    `\nContext: crop=${ctx.crop}, last spray=${ctx.spray}, watering=${ctx.water}, ` +
+    `crop stage=${ctx.stage}. Worker note: ${ctx.note || "none"}`
+  );
+}
+
+export function isUsable(obs) {
+  return obs.subject === "plant" && obs.photoQuality !== "poor";
 }
 
 export function agreement(obs, cloud) {

@@ -54,4 +54,21 @@ object Photo {
         val mean = sum / n
         return sumSq / n - mean * mean
     }
+
+    /** Bundled demo samples, loaded by resource name. Returns null if missing. */
+    fun sampleBitmap(context: android.content.Context, name: String, maxDim: Int = MAX_DIM): Bitmap? {
+        val id = context.resources.getIdentifier(name, "drawable", context.packageName)
+        if (id == 0) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeResource(context.resources, id, bounds)
+        if (bounds.outWidth <= 0) return null
+        var sample = 1
+        while (bounds.outWidth / sample > maxDim || bounds.outHeight / sample > maxDim) {
+            sample *= 2
+        }
+        return BitmapFactory.decodeResource(
+            context.resources, id,
+            BitmapFactory.Options().apply { inSampleSize = sample }
+        )
+    }
 }

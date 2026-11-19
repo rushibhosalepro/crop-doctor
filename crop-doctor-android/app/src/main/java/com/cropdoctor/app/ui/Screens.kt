@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 private data class ChipQ(val key: String, val label: String, val options: List<Pair<String, String>>)
 
 private val QUESTIONS = listOf(
-    ChipQ("crop", "Crop", listOf("paddy" to "Paddy", "wheat" to "Wheat", "tomato" to "Tomato", "other" to "Other", "unknown" to "Not sure")),
+    ChipQ("crop", "Crop", listOf("paddy" to "Paddy", "wheat" to "Wheat", "tomato" to "Tomato", "cotton" to "Cotton", "sugarcane" to "Sugarcane", "soybean" to "Soybean", "maize" to "Maize", "other" to "Other", "unknown" to "Not sure")),
     ChipQ("watered", "Last watered", listOf("today" to "Today", "week" to "This week", "older" to "Longer ago", "not_sure" to "Not sure")),
     ChipQ("fertilizer", "Last fertilizer", listOf("recent" to "Recent", "older" to "Longer ago", "none" to "None", "not_sure" to "Not sure")),
     ChipQ("spray", "Last spray", listOf("today" to "Today", "this_week" to "This week", "older" to "Longer ago", "none_4w" to "None in 4 weeks", "not_sure" to "Not sure")),
@@ -91,7 +91,7 @@ fun CropDoctorScreen() {
     var verifying by remember { mutableStateOf(false) }
     var report by remember { mutableStateOf<Report?>(null) }
     var error by remember { mutableStateOf("") }
-    var pingResult by remember { mutableStateOf("") }
+    var onDeviceOnly by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
     var history by remember { mutableStateOf<List<Report>>(emptyList()) }
     var selectedId by remember { mutableStateOf<String?>(null) }
@@ -132,15 +132,15 @@ fun CropDoctorScreen() {
         }
     }
 
-    fun analyze() {
-        val bmp = bitmap ?: return
+    fun analyze(explicit: Bitmap? = null) {
+        val bmp = explicit ?: bitmap ?: return
         analyzing = true
         error = ""
         scope.launch {
             try {
                 val ctx = currentContext()
                 android.util.Log.d("CropDoctor", "analyze: calling triage")
-                val (obs, servedBy) = AiClient.triage(bmp, ctx, note)
+                val (obs, servedBy) = AiClient.triage(bmp, ctx, note, onDeviceOnly)
                 android.util.Log.d("CropDoctor", "analyze: triage done via $servedBy")
                 val proposal = RulesEngine.propose(ctx, obs)
                 var rep = Report(
@@ -278,7 +278,8 @@ fun CropDoctorScreen() {
                 },
                 onFeedbackSave = {
                     scope.launch { ReportStore.saveFeedback(rep.id, feedback) }
-                }
+                },
+                photo = bitmap
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { resetCase() }, modifier = Modifier.fillMaxWidth()) {
@@ -289,12 +290,67 @@ fun CropDoctorScreen() {
         }
 
         // Capture branch.
+        Text("Crop Doctor", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Snap a leaf. Get a case file, with or without signal.")
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = !onDeviceOnly,
+                onClick = { onDeviceOnly = false },
+                label = { Text("Auto (hybrid)") }
+            )
+            FilterChip(
+                selected = onDeviceOnly,
+                onClick = { onDeviceOnly = true },
+                label = { Text("On-device only") }
+            )
+        }
+        if (onDeviceOnly) {
+            Text(
+                "On-device only proves offline mode on Nano phones.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        Spacer(Modifier.height(8.dp))
         Button(
             onClick = { camera.launch(photoUri) },
             modifier = Modifier.fillMaxWidth().height(64.dp)
         ) { Text("Take leaf photo", fontSize = 18.sp) }
         Spacer(Modifier.height(8.dp))
         bitmap?.let { Image(it.asImageBitmap(), "leaf photo", Modifier.fillMaxWidth().height(220.dp)) }
+        Spacer(Modifier.height(8.dp))
+        Text("OR TRY A SAMPLE", style = MaterialTheme.typography.labelLarge)
+        val sampleThumbs = remember {
+            mapOf(
+                "Spotted" to Photo.sampleBitmap(context, "sample_spotted"),
+                "Healthy" to Photo.sampleBitmap(context, "sample_healthy"),
+                "Not plant" to Photo.sampleBitmap(context, "sample_notplant")
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            sampleThumbs.forEach { (label, bmp) ->
+                Card(
+                    onClick = {
+                        if (bmp != null) {
+                            bitmap = bmp
+                            sharpScore = Photo.sharpnessScore(bmp)
+                            sharpDismissed = true
+                            report = null
+                            error = ""
+                            analyze(bmp)
+                        } else {
+                            error = "Sample image missing."
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(Modifier.padding(6.dp)) {
+                        bmp?.let { Image(it.asImageBitmap(), label, Modifier.fillMaxWidth().height(64.dp)) }
+                        Text(label, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
         val score = sharpScore
         if (score != null && score < Photo.SHARPNESS_THRESHOLD && !sharpDismissed) {
             Spacer(Modifier.height(8.dp))
@@ -324,21 +380,6 @@ fun CropDoctorScreen() {
         Button(onClick = { analyze() }, enabled = !blocked, modifier = Modifier.fillMaxWidth()) {
             Text(if (analyzing) "Analyzing…" else "Analyze (30 seconds)")
         }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = {
-                pingResult = "Pinging…"
-                scope.launch {
-                    pingResult = try {
-                        "Cloud says: ${AiClient.ping()}"
-                    } catch (e: Exception) {
-                        "Ping failed: ${e.message}"
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Test cloud (temporary)") }
-        if (pingResult.isNotEmpty()) Text(pingResult)
         SafetyFooter()
     }
 }
@@ -353,19 +394,32 @@ fun CaseDetail(
     onConfirm: (String) -> Unit,
     onDelivered: () -> Unit,
     onFeedbackSave: () -> Unit,
-    showFollowup: Boolean = true
+    showFollowup: Boolean = true,
+    photo: Bitmap? = null
 ) {
-    ObservationCard(report.observation, report.servedBy)
+    VerdictHeadline(report)
     Spacer(Modifier.height(8.dp))
+    photo?.let {
+        Image(it.asImageBitmap(), "case photo", Modifier.fillMaxWidth().height(200.dp))
+        Spacer(Modifier.height(8.dp))
+    }
+    val pri = report.workerPriority.ifEmpty { report.proposal.priority }
+    if (pri == "prioritize_review") {
+        val urgent = report.proposal.flags.any {
+            it == "LARGE_EXTENT" || it == "FAST_SPREAD" || it == "RECENT_SPRAY"
+        }
+        EscalationCard(
+            reason = report.proposal.reasons.firstOrNull() ?: "See reasons below.",
+            urgent = urgent
+        )
+        Spacer(Modifier.height(8.dp))
+    }
     ProposalCard(report.proposal, report.workerPriority, onConfirm)
+    Spacer(Modifier.height(8.dp))
+    ObservationCard(report.observation, report.servedBy)
     Spacer(Modifier.height(8.dp))
     CloudCard(report, online, verifying, onVerify)
     Spacer(Modifier.height(8.dp))
-    val pri = report.workerPriority.ifEmpty { report.proposal.priority }
-    if (pri == "prioritize_review") {
-        EscalationCard()
-        Spacer(Modifier.height(8.dp))
-    }
     if (showFollowup) {
         if (!report.delivered) {
             Button(onClick = onDelivered, modifier = Modifier.fillMaxWidth()) {

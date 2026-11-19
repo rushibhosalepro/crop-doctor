@@ -46,6 +46,13 @@ object AiClient {
         )
     }
 
+    private val onDeviceOnlyModel: GenerativeModel by lazy {
+        Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
+            modelName = CLOUD_MODEL,
+            onDeviceConfig = OnDeviceConfig(mode = InferenceMode.ONLY_ON_DEVICE)
+        )
+    }
+
     suspend fun modelStatusText(): String {
         return try {
             statusName(FirebaseAIOnDevice.checkStatus())
@@ -86,10 +93,27 @@ object AiClient {
      * AVAILABLE, because PREFER_ON_DEVICE can hang on devices without AICore
      * instead of falling back quickly.
      */
-    suspend fun triage(bitmap: Bitmap, context: LeafContext, note: String): Pair<FieldObservation, String> {
+    suspend fun triage(
+        bitmap: Bitmap,
+        context: LeafContext,
+        note: String,
+        onlyOnDevice: Boolean = false
+    ): Pair<FieldObservation, String> {
         val prompt = content {
             image(bitmap)
             text(TRIAGE_PROMPT + contextBlock(context, note))
+        }
+        if (onlyOnDevice) {
+            val ready = try {
+                FirebaseAIOnDevice.checkStatus() == OnDeviceModelStatus.AVAILABLE
+            } catch (_: Exception) {
+                false
+            }
+            if (!ready) throw Exception("On-device model is not available on this phone. Switch to Auto (hybrid).")
+            val response = withTimeout(60_000L) {
+                onDeviceOnlyModel.generateContent(prompt)
+            }
+            return parseObservation(response.text.orEmpty()) to response.inferenceSource.toString()
         }
         val onDeviceReady = try {
             FirebaseAIOnDevice.checkStatus() == OnDeviceModelStatus.AVAILABLE
@@ -116,14 +140,6 @@ object AiClient {
         return parseVerification(response.text.orEmpty()) to response.inferenceSource.toString()
     }
 
-    /** Temporary diagnostic: text-only cloud call, no image. */
-    suspend fun ping(): String {
-        val response = withTimeout(60_000L) {
-            verifyModel.generateContent("Reply with exactly: OK")
-        }
-        return response.text.orEmpty()
-    }
-
     private fun contextBlock(context: LeafContext, note: String): String {
         return "\nContext: crop=${context.crop}, watered=${context.watered}, " +
             "fertilizer=${context.fertilizer}, spray=${context.spray}, " +
@@ -135,12 +151,14 @@ object AiClient {
         "You are a crop observation assistant. Describe ONLY what is visible. " +
             "Answer with ONLY this JSON, no other text: " +
             "{\"subject\": one of plant|not_plant|unclear, " +
+            "\"cropGuess\": \"crop name in one or two words if identifiable, else unknown\", " +
             "\"symptoms\": \"visible marks in plain words\", " +
             "\"location\": \"where on the plant\", " +
             "\"extent\": one of none|small|moderate|large|unknown, " +
             "\"photoQuality\": one of ok|poor, " +
             "\"notes\": \"anything uncertain\"}. " +
             "Rules: never name a disease or pest; never suggest treatment, " +
+            "cropGuess is only an unconfirmed visual guess; " +
             "severity, or urgency; if not a plant use not_plant; " +
             "if unsure use unclear; English only."
 

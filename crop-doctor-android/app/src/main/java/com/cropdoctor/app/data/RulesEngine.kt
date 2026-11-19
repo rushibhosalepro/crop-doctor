@@ -45,12 +45,19 @@ object RulesEngine {
             )
         }
         // R-UNKNOWN-CROP: outside covered list => escalate.
+        // The model's visual guess is shown but never auto-applied: the
+        // worker confirms the crop by tapping its chip and re-analyzing.
         if (context.crop !in coveredCrops) {
             prioritize = true
             flags.add("UNKNOWN_CROP")
+            val guess = obs.cropGuess
+            val guessNote = if ((context.crop == "unknown" || context.crop == "other") &&
+                guess.isNotEmpty() && guess != "unknown"
+            ) " Photo looks like $guess (unconfirmed)."
+            else ""
             reasons.add(
                 "Crop '${context.crop}' is outside the covered list " +
-                    "(paddy, wheat, tomato). Expert review required."
+                    "(paddy, wheat, tomato).$guessNote Expert review required."
             )
         }
         // R-LOW-INFO: too many unknowns => escalate, never guess.

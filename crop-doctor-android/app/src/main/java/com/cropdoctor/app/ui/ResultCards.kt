@@ -51,6 +51,9 @@ fun ObservationCard(obs: FieldObservation, servedBy: String) {
             Text("Served by: $servedBy", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(4.dp))
             Text("Subject: ${obs.subject}")
+            if (obs.cropGuess.isNotEmpty() && obs.cropGuess != "unknown") {
+                Text("Looks like: ${obs.cropGuess} (unconfirmed)")
+            }
             if (obs.symptoms.isNotEmpty()) Text("Seen: ${obs.symptoms}")
             if (obs.location.isNotEmpty()) Text("Where: ${obs.location}")
             Text("Extent: ${obs.extent}")
@@ -101,8 +104,14 @@ fun CloudCard(report: Report, online: Boolean, verifying: Boolean, onVerify: () 
             val cloud: CloudVerification? = report.cloud
             when {
                 cloud != null -> {
-                    val agree = report.observationsAgree()
-                    Text(if (agree) "Field and cloud observations: MATCH" else "UPDATED ASSESSMENT — cloud differs")
+                    when (report.agreementLevel()) {
+                        "match" -> Text("Field and cloud agree.")
+                        "small_diff" -> Text(
+                            "Mostly agree — small detail difference " +
+                                "(field: ${report.observation.extent}, cloud: ${cloud.extent})."
+                        )
+                        else -> Text("UPDATED ASSESSMENT — cloud sees it differently.")
+                    }
                     Text(cloud.reviewNote)
                     cloud.questionsForExpert.forEach { Text("• Ask expert: $it") }
                     Text("Cloud priority: ${priorityLabel(cloud.priority)}")
@@ -122,14 +131,66 @@ fun CloudCard(report: Report, online: Boolean, verifying: Boolean, onVerify: () 
 }
 
 @Composable
-fun EscalationCard() {
+fun EscalationCard(reason: String, urgent: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+        colors = CardDefaults.cardColors(
+            containerColor = if (urgent) Color(0xFFFFEBEE) else Color(0xFFFFF8E1)
+        )
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text("Show this case to an expert before acting.", fontWeight = FontWeight.Bold)
+            Text(
+                if (urgent) "Show this case to an expert before acting."
+                else "An expert should review this case.",
+                fontWeight = FontWeight.Bold
+            )
+            Text("Why: $reason")
             Text("Kisan Call Centre: 1800-180-1551 (toll-free, 6 AM–10 PM)")
+        }
+    }
+}
+
+@Composable
+fun VerdictHeadline(report: Report) {
+    val obs = report.observation
+    val pri = report.workerPriority.ifEmpty { report.proposal.priority }
+    val title: String
+    val detail: String
+    val color: Color
+    when {
+        obs.subject == "not_plant" -> {
+            title = "Not a plant"
+            detail = "Take a photo of a leaf to open a case."
+            color = Color(0xFF616161)
+        }
+        !obs.isUsableCase() -> {
+            title = "Photo unclear"
+            detail = "Retake a clear, close-up leaf photo."
+            color = Color(0xFF616161)
+        }
+        pri == "prioritize_review" -> {
+            title = "Needs expert review"
+            detail = report.proposal.reasons.firstOrNull() ?: "See reasons below."
+            color = Color(0xFFB71C1C)
+        }
+        else -> {
+            title = "Case recorded"
+            detail = "Standard follow-up. Worker confirms below."
+            color = Color(0xFF1B5E20)
+        }
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                title,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(detail)
         }
     }
 }

@@ -81,4 +81,15 @@ class RulesEngineTest {
         assertNotEquals("routine", p.priority)
         assertNotEquals("all_clear", p.priority)
     }
+
+    @Test fun `unknown crop with model guess mentions the guess`() {
+        val ctx = LeafContext(
+            crop = "unknown", watered = "week", fertilizer = "older",
+            spray = "none_4w", weather = "normal",
+            stage = "vegetative", spread = "slow"
+        )
+        val p = RulesEngine.propose(ctx, mildObs.copy(cropGuess = "cotton"))
+        assertEquals("prioritize_review", p.priority)
+        assertTrue(p.reasons.any { it.contains("cotton") })
+    }
 }

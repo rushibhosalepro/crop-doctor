@@ -22,6 +22,7 @@ data class LeafContext(
 @Serializable
 data class FieldObservation(
     val subject: String = "unclear", // plant | not_plant | unclear
+    val cropGuess: String = "unknown", // model's visual guess, unconfirmed
     val symptoms: String = "",
     val location: String = "",
     val extent: String = "unknown", // none | small | moderate | large | unknown
@@ -67,6 +68,16 @@ data class Report(
     fun observationsAgree(): Boolean {
         val c = cloud ?: return false
         return observation.subject == c.subject && observation.extent == c.extent
+    }
+
+    /**
+     * Three-level agreement. Only a subject change (plant vs not_plant /
+     * unclear) is an update; a mere extent wording difference is not.
+     */
+    fun agreementLevel(): String {
+        val c = cloud ?: return "none"
+        if (observation.subject != c.subject) return "updated"
+        return if (observation.extent == c.extent) "match" else "small_diff"
     }
 }
 

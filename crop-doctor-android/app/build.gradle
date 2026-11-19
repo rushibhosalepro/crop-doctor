@@ -6,6 +6,13 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+// Machine-local settings (git-ignored). Never put secrets in tracked files.
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+
 android {
     namespace 'com.cropdoctor.app'
     compileSdk 35
@@ -22,6 +29,16 @@ android {
         debug {
             // No applicationIdSuffix: debug and release share one package
             // (com.cropdoctor.app) so a single google-services.json works.
+
+            // Optional predefined App Check debug token, so a shared debug APK
+            // works on any phone without reading logcat. Set
+            //   appcheck.debugToken=<uuid>
+            // in local.properties (git-ignored). The SDK reads this string
+            // resource in debuggable builds only and ignores it in release.
+            def token = localProps.getProperty('appcheck.debugToken', '').trim()
+            if (token) {
+                resValue 'string', 'firebase_app_check_debug_token', token
+            }
         }
         release {
             minifyEnabled false

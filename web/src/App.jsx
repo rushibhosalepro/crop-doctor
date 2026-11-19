@@ -42,7 +42,8 @@ const CHIPS = [
 
 const SAMPLES = [
   { src: "samples/sample_spotted.jpg", label: "Spotted", hint: "Damage case" },
-  { src: "samples/sample_healthy.jpg", label: "Healthy", hint: "Clean leaf" },
+  { src: "samples/sample_healthy.jpg", label: "Healthy", hint: "Mature green leaf" },
+  { src: "samples/sample_newshoots.jpg", label: "New shoots", hint: "Checks may disagree" },
   { src: "samples/sample_notplant.jpg", label: "Not plant", hint: "Safety test" },
 ];
 
@@ -124,14 +125,16 @@ export default function App() {
           patch(id, () => ({ status: "running", field: null, error: "" }));
           try {
             const m = runMode === "device" ? models.device : models.prefer;
+            const t0 = performance.now();
             const call = m.generateContent([TRIAGE_PROMPT + context, imagePart]);
             const res = runMode === "device" ? await call : await withTimeout(call, 90000, "First check");
+            const ms = Math.round(performance.now() - t0);
             const source = res.response.inferenceSource || "unknown";
             // The SDK can silently use the cloud even in ONLY_ON_DEVICE mode.
             if (runMode === "device" && source !== "on_device") {
               throw new Error("Expected an on-device answer, but it came from: " + source);
             }
-            field = { obs: JSON.parse(extractJson(res.response.text())), source };
+            field = { obs: JSON.parse(extractJson(res.response.text())), source, ms };
             patch(id, () => ({ field }));
           } catch (e) {
             const msg = errText(e);
@@ -148,18 +151,26 @@ export default function App() {
           patch(id, () => ({ status: "done", image: null }));
           return;
         }
+        // On-device only: the photo never leaves this device unless the
+        // worker asks for the cloud double-check (keeps the image for that).
+        if (c0.localOnly) {
+          patch(id, () => ({ status: "done" }));
+          return;
+        }
         if (!navigator.onLine) {
           patch(id, () => ({ status: "waiting" }));
           return;
         }
         patch(id, () => ({ status: "running", cloud: null }));
         try {
+          const t0 = performance.now();
           const res = await withTimeout(
             models.cloud.generateContent([VERIFY_PROMPT + context, imagePart]),
             90000,
             "Cloud double-check"
           );
-          const cloud = { obs: JSON.parse(extractJson(res.response.text())), source: res.response.inferenceSource || "in_cloud" };
+          const ms = Math.round(performance.now() - t0);
+          const cloud = { obs: JSON.parse(extractJson(res.response.text())), source: res.response.inferenceSource || "in_cloud", ms };
           patch(id, () => ({ cloud, status: "done", image: null }));
         } catch (e) {
           if (!navigator.onLine) patch(id, () => ({ status: "waiting" }));
@@ -238,6 +249,7 @@ export default function App() {
       thumb: await makeThumb(img.previewUrl),
       image: { base64: img.base64, mimeType: img.mimeType },
       sample: picked,
+      localOnly: mode === "device",
       status: "running",
       field: null,
       cloud: null,
@@ -252,13 +264,17 @@ export default function App() {
     runCase(c, mode, deviceUsable);
   }
 
+  // Retry a failed cloud step, or (on-device-only cases) send the photo to
+  // the cloud because the worker explicitly asked for it.
   function retryCloud() {
     if (!active) return;
     if (!active.image) {
       setError("The photo for this case is no longer stored. Start a new case.");
       return;
     }
-    runCase({ ...active, cloud: null }, "auto", deviceUsable);
+    const next = { ...active, cloud: null, localOnly: false };
+    patch(active.id, () => ({ localOnly: false }));
+    runCase(next, "auto", deviceUsable);
   }
 
   const setChip = (key, val) => setCtx((p) => ({ ...p, [key]: val }));
@@ -341,6 +357,7 @@ export default function App() {
           <div className="pane-head">
             <h3>2. Quick context <small>(optional, tap if known)</small></h3>
           </div>
+          <p className="hint tip">Tip: set Last spray to “This week” and analyze again to see the spray-safety rule.</p>
           <div className="chip-row">
             <span className="chip-label">Crop</span>
             <select value={ctx.crop} onChange={(e) => setChip("crop", e.target.value)}>

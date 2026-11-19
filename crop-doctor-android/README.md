@@ -34,6 +34,35 @@ human decides. Full product reasoning: `../crop-doctor-spec.md`.
 6. **Firestore:** create database. For the hackathon use test mode, then
    tighten to authenticated users before any real use.
 
+## Shareable debug APK with a predefined App Check token
+
+A normal debug build makes a new random App Check token on every phone, so a
+judge's phone is rejected until someone registers its token. A predefined
+token fixes this: one token, registered once, baked into the debug APK.
+
+1. Make a token: any random UUID. In PowerShell: `[guid]::NewGuid()`.
+2. Register it: Firebase console → App Check → Apps → the Android app
+   (`com.cropdoctor.app`) → ⋮ → **Manage debug tokens** → Add, name it
+   `judges-apk`, paste the UUID.
+3. Add it to `crop-doctor-android/local.properties` (git-ignored):
+   ```
+   appcheck.debugToken=PASTE-THE-UUID
+   ```
+   `app/build.gradle` turns this into the string resource
+   `firebase_app_check_debug_token`, which the App Check debug provider
+   reads in debuggable builds only (release builds ignore it). Logcat shows
+   "Debug token loaded from R.string.firebase_app_check_debug_token".
+4. Build: Android Studio → Build → Build App Bundle(s) / APK(s) → **Build
+   APK(s)**. Output: `app/build/outputs/apk/debug/app-debug.apk`.
+5. Share the APK privately (submission form or a private Drive link), never
+   in the public repo or a GitHub release.
+6. After judging ends, delete the token in Manage debug tokens. Every copy
+   of the APK stops working at once.
+
+Risk to know: anyone with the APK can extract the token and call your
+Firebase AI Logic quota until you delete it. That's why it is shared
+privately and revoked after judging. Never commit `local.properties`.
+
 ## Run
 
 1. Open `crop-doctor-android` in Android Studio, let Gradle sync.

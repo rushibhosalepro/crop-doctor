@@ -44,14 +44,19 @@ Open the printed `http://localhost:3000` URL in Chrome.
 For a clean demo build: `npm run build`, then serve `dist/`
 (`npx serve dist`) and open that URL instead.
 
+Live: **https://crop-doctor-d6c91.web.app**
+
 ## Demo script (the money shot)
 
-1. Click **Prepare on-device model**, wait for 100% (first download takes
-   minutes; one time only).
-2. Tap a sample. Badge should read **Ran ON THIS DEVICE**.
-3. Turn laptop Wi-Fi OFF. Tap a sample again. It still works.
-   That is the on-device proof for the video.
-4. Turn Wi-Fi on. Cloud verification appears with its own badge.
+1. In the header, click **Prepare** next to the model status and wait until
+   it reads **Gemini Nano ready** (first download takes minutes, once).
+2. Tap a sample. Step 1 in the timeline should read
+   **On this device · Gemini Nano** with its time.
+3. Turn laptop Wi-Fi OFF (header shows Offline). Tap a sample again. Step 1
+   still runs on the device; step 2 shows **Waiting for signal** and the case
+   is saved in History.
+4. Turn Wi-Fi on. The waiting case finishes by itself and step 2 shows
+   **Cloud · Gemini** with the agreement result.
 
 ## Hosting (public demo URL for judges)
 
@@ -80,5 +85,7 @@ Redeploy after any change: `cd web && npm run build && cd .. && firebase deploy 
   Android app instead of a Web app. Both must be the web app's.
 - `ONLY_ON_DEVICE` waits for a pending download instead of failing fast.
   Always Prepare first.
-- Only Chrome on desktop works. Mobile Chrome and other browsers fall back
-  to cloud or fail — that is expected, not a bug.
+- Only Google Chrome on desktop has Gemini Nano. Edge is built on Chromium
+  but doesn't ship Gemini Nano, so it (and mobile browsers) use the cloud.
+  The header says "No on-device AI in this browser" and On-device only is
+  disabled. That is expected, not a bug.

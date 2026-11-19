@@ -11,16 +11,19 @@ function PathChip({ step }) {
   if (step.state === "waiting") return <span className="chip-path path-wait">⏳ Waiting for signal</span>;
   if (step.state === "skipped") return <span className="chip-path path-slate">Skipped</span>;
   if (step.state === "error") return <span className="chip-path path-red">Failed</span>;
+  if (step.state === "local") return <span className="chip-path path-device">🔒 Photo not uploaded</span>;
+  const time = step.ms ? ` · ${(step.ms / 1000).toFixed(1)}s` : "";
   return step.source === "on_device"
-    ? <span className="chip-path path-device">● On this device · Gemini Nano</span>
-    : <span className="chip-path path-cloud">☁ Cloud · Gemini</span>;
+    ? <span className="chip-path path-device">● On this device · Gemini Nano{time}</span>
+    : <span className="chip-path path-cloud">☁ Cloud · Gemini{time}</span>;
 }
 
 function stepState(c, which) {
   const s = c[which];
-  if (s && s.obs) return { state: "done", source: s.source };
+  if (s && s.obs) return { state: "done", source: s.source, ms: s.ms };
   if (s && s.error) return { state: "error" };
   if (which === "cloud" && c.field && c.field.obs && !isUsable(c.field.obs)) return { state: "skipped" };
+  if (which === "cloud" && c.localOnly && c.field && c.field.obs) return { state: "local" };
   if (c.status === "running") {
     const fieldDone = c.field && c.field.obs;
     if (which === "field" || fieldDone) return { state: "running" };
@@ -65,8 +68,14 @@ function Banner({ c }) {
         </ul>
       )}
       <div className="banner-actions">
-        <a className="btn-call" href={HELPLINE_TEL}>📞 Call Kisan Call Centre {HELPLINE}</a>
-        {workerSet && <span className="worker-tag">Worker set: {priorityLabel(workerSet)}</span>}
+        {h.severity === "HIGH" ? (
+          <a className="btn-call" href={HELPLINE_TEL}>📞 Call Kisan Call Centre {HELPLINE}</a>
+        ) : (
+          <span className="call-quiet">
+            Not sure? Kisan Call Centre <a href={HELPLINE_TEL}>{HELPLINE}</a>
+          </span>
+        )}
+        {workerSet && <span className="worker-tag">✓ Confirmed: {priorityLabel(workerSet)}</span>}
       </div>
     </div>
   );
@@ -102,16 +111,35 @@ function FieldStep({ c }) {
   );
 }
 
+const EXTENT_WORDS = {
+  none: "no problem seen",
+  small: "small marks",
+  moderate: "some damage",
+  large: "large damage",
+  unknown: "unsure",
+};
+const words = (e) => EXTENT_WORDS[e] || EXTENT_WORDS.unknown;
+
 function AgreePill({ c }) {
   const f = c.field && c.field.obs;
   const k = c.cloud && c.cloud.obs;
   if (!f || !k) return null;
   const level = agreement(f, k);
   const both = f.extent === "none" && k.extent === "none";
-  if (both || level === "match") return <li className="agree ok">✓ Both checks agree{both ? ": no problem seen" : ""}</li>;
+  if (both || level === "match")
+    return <li className="agree ok">✓ Both checks agree: {words(f.extent)}</li>;
   if (level === "small_diff")
-    return <li className="agree warn">≈ Mostly agree. First check: {f.extent}, cloud: {k.extent}. The worse one is used.</li>;
-  return <li className="agree bad">⚠ Updated assessment. The cloud sees this differently. Both are kept.</li>;
+    return (
+      <li className="agree warn">
+        ⚠ The checks differ. First check: {words(f.extent)} · Cloud: {words(k.extent)}.
+        Showing the more careful result until you confirm.
+      </li>
+    );
+  return (
+    <li className="agree bad">
+      ⚠ The cloud sees this differently. Both answers are kept. Showing the more careful result until you confirm.
+    </li>
+  );
 }
 
 function CloudStep({ c, onRetry, onToggleCheck }) {
@@ -126,6 +154,12 @@ function CloudStep({ c, onRetry, onToggleCheck }) {
       </div>
       {!st && <p className="hint">Runs after the first check.</p>}
       {st && st.state === "skipped" && <p className="hint">Not needed: the photo isn't a usable leaf photo.</p>}
+      {st && st.state === "local" && (
+        <p className="hint">
+          On-device only mode: the photo stayed on this device. Healthy can't be confirmed without the double-check.{" "}
+          <button className="link" onClick={onRetry}>Send photo to cloud for double-check</button>
+        </p>
+      )}
       {st && st.state === "waiting" && <p className="hint">Saved. Runs automatically when the connection is back.</p>}
       {st && st.state === "error" && (
         <p className="err-line">
@@ -160,14 +194,15 @@ function WorkerBar({ c, onWorker }) {
     <div className="worker">
       <div className="worker-row">
         <span className="label">Your decision</span>
-        <div className="seg">
+        <div className="seg decision">
           <button className={w.priority === "prioritize_review" ? "on" : ""} onClick={() => onWorker({ priority: "prioritize_review" })}>
-            Expert soon
+            {w.priority === "prioritize_review" ? "✓ " : ""}Expert soon
           </button>
           <button className={w.priority === "standard_followup" ? "on" : ""} onClick={() => onWorker({ priority: "standard_followup" })}>
-            Routine
+            {w.priority === "standard_followup" ? "✓ " : ""}Routine
           </button>
         </div>
+        {w.priority && <span className="confirmed">Confirmed: {priorityLabel(w.priority)}</span>}
         <button className={"btn-ghost" + (w.delivered ? " done" : "")} onClick={() => onWorker({ delivered: !w.delivered })}>
           {w.delivered ? "✓ Told the farmer" : "Mark told to farmer"}
         </button>

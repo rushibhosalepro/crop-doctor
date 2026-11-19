@@ -46,9 +46,9 @@ class RulesEngineTest {
         )
     }
 
-    @Test fun `unknown crop escalates`() {
+    @Test fun `unknown crop is an info flag, not red`() {
         val p = RulesEngine.propose(cleanCrop.copy(crop = "banana"), mildObs)
-        assertEquals("prioritize_review", p.priority)
+        assertEquals("standard_followup", p.priority)
         assertTrue(p.flags.contains("UNKNOWN_CROP"))
     }
 
@@ -59,9 +59,9 @@ class RulesEngineTest {
         }
     }
 
-    @Test fun `low info escalates`() {
+    @Test fun `low info is an info flag, not red`() {
         val p = RulesEngine.propose(LeafContext(crop = "paddy"), mildObs)
-        assertEquals("prioritize_review", p.priority)
+        assertEquals("standard_followup", p.priority)
         assertTrue(p.flags.contains("LOW_INFO"))
     }
 
@@ -96,7 +96,7 @@ class RulesEngineTest {
             stage = "vegetative", spread = "slow"
         )
         val p = RulesEngine.propose(ctx, mildObs.copy(cropGuess = "cotton"))
-        assertEquals("prioritize_review", p.priority)
+        assertEquals("standard_followup", p.priority)
         assertTrue(p.reasons.any { it.contains("cotton") })
     }
 }

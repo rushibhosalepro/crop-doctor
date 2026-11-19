@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 private data class ChipQ(val key: String, val label: String, val options: List<Pair<String, String>>)
 
 private val QUESTIONS = listOf(
-    ChipQ("crop", "Crop", listOf("paddy" to "Paddy", "wheat" to "Wheat", "tomato" to "Tomato", "cotton" to "Cotton", "sugarcane" to "Sugarcane", "soybean" to "Soybean", "maize" to "Maize", "other" to "Other", "unknown" to "Not sure")),
+    ChipQ("crop", "Crop", listOf("paddy" to "Paddy", "wheat" to "Wheat", "tomato" to "Tomato", "cotton" to "Cotton", "sugarcane" to "Sugarcane", "soybean" to "Soybean", "maize" to "Maize", "mango" to "Mango", "chili" to "Chili", "papaya" to "Papaya", "chikoo" to "Chikoo", "fenugreek" to "Fenugreek", "other" to "Other", "unknown" to "Not sure")),
     ChipQ("watered", "Last watered", listOf("today" to "Today", "week" to "This week", "older" to "Longer ago", "not_sure" to "Not sure")),
     ChipQ("fertilizer", "Last fertilizer", listOf("recent" to "Recent", "older" to "Longer ago", "none" to "None", "not_sure" to "Not sure")),
     ChipQ("spray", "Last spray", listOf("today" to "Today", "this_week" to "This week", "older" to "Longer ago", "none_4w" to "None in 4 weeks", "not_sure" to "Not sure")),
@@ -200,6 +200,33 @@ fun CropDoctorScreen() {
         }
     }
 
+    fun chipForGuess(guess: String): String {
+        val g = guess.lowercase()
+        val chips = listOf(
+            "paddy", "wheat", "tomato", "cotton", "sugarcane", "soybean",
+            "maize", "mango", "chili", "papaya", "chikoo", "fenugreek"
+        )
+        chips.firstOrNull { g.contains(it) }?.let { return it }
+        if (g.contains("corn")) return "maize"
+        if (g.contains("rice")) return "paddy"
+        if (g.contains("mirchi")) return "chili"
+        return "other"
+    }
+
+    fun confirmCrop(target: Report, choice: String) {
+        if (choice.isEmpty()) return
+        val chip = chipForGuess(choice)
+        if (target.context.crop == chip) return
+        val updatedCtx = target.context.copy(crop = chip)
+        val proposal = RulesEngine.propose(updatedCtx, target.observation)
+        val updated = target.copy(context = updatedCtx, proposal = proposal)
+        if (updated.id == report?.id) report = updated
+        scope.launch {
+            runCatching { ReportStore.save(updated) }
+            if (tab == 1) history = ReportStore.list()
+        }
+    }
+
     fun resetCase() {
         bitmap = null
         photoTaken = false
@@ -215,14 +242,16 @@ fun CropDoctorScreen() {
     Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState())) {
         StatusPill(modelStatus)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { tab = 0 }, enabled = tab != 0) { Text("New case") }
-            OutlinedButton(
-                onClick = { tab = 1; selectedId = null; scope.launch { history = ReportStore.list() } },
-                enabled = tab != 1
-            ) { Text("History") }
+        if (report == null || tab == 1) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { tab = 0 }, enabled = tab != 0) { Text("Capture") }
+                OutlinedButton(
+                    onClick = { tab = 1; selectedId = null; scope.launch { history = ReportStore.list() } },
+                    enabled = tab != 1
+                ) { Text("History") }
+            }
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(8.dp))
 
         if (error.isNotEmpty()) {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -248,7 +277,8 @@ fun CropDoctorScreen() {
                         ReportStore.confirmPriority(rep.id, choice, choice != rep.proposal.priority)
                         history = ReportStore.list()
                     }
-                }
+                },
+                onCropConfirm = { rep, choice -> confirmCrop(rep, choice) }
             )
             return@Column
         }
@@ -279,7 +309,8 @@ fun CropDoctorScreen() {
                 onFeedbackSave = {
                     scope.launch { ReportStore.saveFeedback(rep.id, feedback) }
                 },
-                photo = bitmap
+                photo = bitmap,
+                onCropConfirm = { confirmCrop(rep, it) }
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { resetCase() }, modifier = Modifier.fillMaxWidth()) {
@@ -395,9 +426,10 @@ fun CaseDetail(
     onDelivered: () -> Unit,
     onFeedbackSave: () -> Unit,
     showFollowup: Boolean = true,
-    photo: Bitmap? = null
+    photo: Bitmap? = null,
+    onCropConfirm: (String) -> Unit
 ) {
-    VerdictHeadline(report)
+    VerdictHeadline(report, onCropConfirm)
     Spacer(Modifier.height(8.dp))
     photo?.let {
         Image(it.asImageBitmap(), "case photo", Modifier.fillMaxWidth().height(200.dp))
@@ -439,6 +471,20 @@ fun CaseDetail(
             Text("Save feedback")
         }
         Spacer(Modifier.height(8.dp))
+    }
+    var showDetails by remember { mutableStateOf(false) }
+    OutlinedButton(
+        onClick = { showDetails = !showDetails },
+        modifier = Modifier.fillMaxWidth()
+    ) { Text(if (showDetails) "Details for expert ▲" else "Details for expert ▾") }
+    if (showDetails) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp)) {
+                Text("Flags: ${report.proposal.flags.joinToString().ifEmpty { "none" }}")
+                Text("Served by (raw): ${report.servedBy}")
+                Text("Agreement: ${report.agreementLevel()}")
+            }
+        }
     }
 }
 
@@ -602,7 +648,8 @@ fun HistoryView(
     onSelect: (String?) -> Unit,
     onBack: () -> Unit,
     onVerify: (Report) -> Unit,
-    onConfirm: (Report, String) -> Unit
+    onConfirm: (Report, String) -> Unit,
+    onCropConfirm: (Report, String) -> Unit
 ) {
     val selected = history.find { it.id == selectedId }
     if (selected == null) {
@@ -630,7 +677,8 @@ fun HistoryView(
             feedback = "", onFeedbackChange = {},
             onVerify = { onVerify(selected) },
             onConfirm = { onConfirm(selected, it) },
-            onDelivered = {}, onFeedbackSave = {}, showFollowup = false
+            onDelivered = {}, onFeedbackSave = {}, showFollowup = false,
+            onCropConfirm = { onCropConfirm(selected, it) }
         )
     }
 }

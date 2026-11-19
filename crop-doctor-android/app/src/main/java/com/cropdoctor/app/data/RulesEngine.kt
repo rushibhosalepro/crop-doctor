@@ -2,9 +2,12 @@ package com.cropdoctor.app.data
 
 /**
  * Safety-critical rules engine. Pure Kotlin, fully unit-tested (see
- * RulesEngineTest). Contract enforced here:
- * - Unvalidated rules may ESCALATE only. Nothing here reassures, clears a
- *   case, names a disease, or instructs any chemical action.
+ * RulesEngineTest). Contract v2 enforced here:
+ * - Danger signs (spray, extent, spread) may ESCALATE to red.
+ * - Info gaps (crop, context) are yellow flags only, never red.
+ * - Nothing here reassures, clears a case, names a disease, or instructs
+ *   any chemical action. Green "looks healthy" is a strict display rule
+ *   in Models (dual-confirmed, zero danger flags) — never from this engine.
  * - Every proposal carries human-readable reasons. The worker confirms or
  *   overrides; the app never has the last word on priority.
  */
@@ -12,7 +15,10 @@ object RulesEngine {
 
     // All selectable crops are covered. Only genuinely unknown crops escalate.
     // Rules stay crop-agnostic and escalate-only; no per-crop thresholds here.
-    val coveredCrops = setOf("paddy", "wheat", "tomato", "cotton", "sugarcane", "soybean", "maize")
+    val coveredCrops = setOf(
+        "paddy", "wheat", "tomato", "cotton", "sugarcane", "soybean", "maize",
+        "mango", "chili", "papaya", "chikoo", "fenugreek"
+    )
 
     fun propose(context: LeafContext, obs: FieldObservation): PriorityProposal {
         // Not-a-case states first: no priority without a usable observation.
@@ -45,31 +51,28 @@ object RulesEngine {
                     "Expert must review before any new recommendation."
             )
         }
-        // R-UNKNOWN-CROP: outside covered list => escalate.
-        // The model's visual guess is shown but never auto-applied: the
-        // worker confirms the crop by tapping its chip and re-analyzing.
+        // R-UNKNOWN-CROP: worker couldn't name the crop. Info flag only, never
+        // red on its own: the crop-confirm prompt handles it. The model's
+        // visual guess is shown but never auto-applied.
         if (context.crop !in coveredCrops) {
-            prioritize = true
             flags.add("UNKNOWN_CROP")
             val guess = obs.cropGuess
-            val guessNote = if ((context.crop == "unknown" || context.crop == "other") &&
-                guess.isNotEmpty() && guess != "unknown"
-            ) " Photo looks like $guess (unconfirmed)."
-            else ""
-            reasons.add(
-                "Crop '${context.crop}' is outside the covered list " +
-                    "(${coveredCrops.sorted().joinToString()}).$guessNote Expert review required."
-            )
+            val guessNote = if (guess.isNotEmpty() && guess != "unknown") {
+                " The photo looks like $guess (not confirmed)."
+            } else {
+                ""
+            }
+            reasons.add("Crop not identified.$guessNote An expert should confirm the crop.")
         }
-        // R-LOW-INFO: too many unknowns => escalate, never guess.
+        // R-LOW-INFO: too many unknowns. Info flag only, never red on its
+        // own: the questions prompt handles it.
         val unsure = listOf(
             context.watered, context.fertilizer, context.spray,
             context.weather, context.stage, context.spread
         ).count { it == "not_sure" }
         if (unsure >= 4) {
-            prioritize = true
             flags.add("LOW_INFO")
-            reasons.add("$unsure of 6 context answers unknown. Expert review required.")
+            reasons.add("Only a few details were given. Answer the quick questions for a better check.")
         }
         // R-EXTENT: large visible extent => prioritize. UNVALIDATED threshold.
         if (obs.extent == "large") {

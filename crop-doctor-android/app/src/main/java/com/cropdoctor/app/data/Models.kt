@@ -49,6 +49,9 @@ data class CloudVerification(
     val priority: String = "standard_followup"
 )
 
+/** Result-screen headline. severity: NONE|LOW|MEDIUM|HIGH|UNCONFIRMED|RETAKE. */
+data class Headline(val issue: String, val severity: String, val color: String)
+
 data class Report(
     val id: String = "",
     val createdAt: Long = 0L,
@@ -78,6 +81,70 @@ data class Report(
         val c = cloud ?: return "none"
         if (observation.subject != c.subject) return "updated"
         return if (observation.extent == c.extent) "match" else "small_diff"
+    }
+
+    companion object {
+        val DANGER_FLAGS = setOf("RECENT_SPRAY", "LARGE_EXTENT", "FAST_SPREAD")
+    }
+
+    fun hasDangerFlags(): Boolean = proposal.flags.any { it in DANGER_FLAGS }
+
+    fun isCleanObservation(): Boolean {
+        if (!observation.isUsableCase()) return false
+        val s = observation.symptoms.trim().lowercase()
+        val noSymptoms = s.isEmpty() || s == "none" || s == "none." ||
+            s == "healthy" || s.startsWith("no visible") || s.startsWith("no symptoms")
+        return noSymptoms && observation.extent == "none"
+    }
+
+    /**
+     * Green "looks healthy" display rule (safety contract v2): only when the
+     * field observation is clean, the cloud independently agrees, nothing is
+     * flagged dangerous, and the worker hasn't prioritized. Offline-only
+     * cases can never show green (cloud confirmation required).
+     */
+    /**
+     * One-glance headline: what is wrong + how bad. Severity comes only from
+     * what the photo shows (worst of field and cloud extent) and danger
+     * flags. A missing crop or unanswered chips never raise it. Escalate-only:
+     * no "all clear" without cloud agreement. Names symptoms, never diseases.
+     */
+    fun headline(): Headline {
+        val obs = observation
+        if (obs.subject == "not_plant") return Headline("No leaf in photo", "RETAKE", "grey")
+        if (!obs.isUsableCase()) return Headline("Photo unclear", "RETAKE", "grey")
+        val cropName = (if (context.crop in setOf("unknown", "other")) obs.cropGuess else context.crop)
+            .trim().takeIf { it.isNotEmpty() && it != "unknown" }
+            ?.replaceFirstChar { it.uppercase() }
+        val prefix = if (cropName != null) "$cropName: " else ""
+        val c = cloud
+        val cloudSaysPriority = c?.priority == "prioritize_review"
+        if (isCleanObservation() && !hasDangerFlags() && !cloudSaysPriority) {
+            return if (c != null && c.subject == "plant") Headline("${prefix}No problem seen", "NONE", "green")
+            else Headline("${prefix}No problem seen yet", "UNCONFIRMED", "yellow")
+        }
+        fun rank(e: String) = when (e) { "large" -> 3; "moderate" -> 2; "small" -> 1; "none" -> 0; else -> 2 }
+        var level = maxOf(rank(obs.extent), c?.let { rank(it.extent) } ?: 0)
+        if (hasDangerFlags() || cloudSaysPriority) level = 3
+        val issue = obs.symptoms.trim().trimEnd('.').let {
+            if (it.isEmpty() || it.lowercase() == "none") "Possible problem seen" else it.take(48)
+        }
+        val (sev, color) = when (level) {
+            3 -> "HIGH" to "red"
+            2 -> "MEDIUM" to "orange"
+            else -> "LOW" to "yellow"
+        }
+        return Headline(prefix + issue.replaceFirstChar { it.uppercase() }, sev, color)
+    }
+
+    fun showGreen(): Boolean {
+        if (proposal.priority != "standard_followup") return false
+        if (workerPriority == "prioritize_review") return false
+        if (hasDangerFlags()) return false
+        if (!isCleanObservation()) return false
+        val c = cloud ?: return false
+        if (agreementLevel() != "match") return false
+        return c.priority == "standard_followup"
     }
 }
 

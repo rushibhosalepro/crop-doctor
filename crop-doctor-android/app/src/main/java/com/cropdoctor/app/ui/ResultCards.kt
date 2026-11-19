@@ -24,7 +24,7 @@ import com.cropdoctor.app.data.PriorityProposal
 import com.cropdoctor.app.data.Report
 
 fun priorityLabel(priority: String): String =
-    if (priority == "prioritize_review") "PRIORITIZE REVIEW" else "STANDARD FOLLOW-UP"
+    if (priority == "prioritize_review") "Show to an expert soon" else "Standard follow-up"
 
 fun priorityColor(priority: String): Color =
     if (priority == "prioritize_review") Color(0xFFB71C1C) else Color(0xFF1B5E20)
@@ -35,8 +35,10 @@ fun StatusPill(modelStatus: String) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
     ) {
+        val label = if (modelStatus == "UNAVAILABLE") "On-device model unavailable — using cloud"
+        else "On-device model: $modelStatus"
         Text(
-            "On-device model: $modelStatus",
+            label,
             modifier = Modifier.padding(12.dp),
             style = MaterialTheme.typography.bodyMedium
         )
@@ -45,20 +47,35 @@ fun StatusPill(modelStatus: String) {
 
 @Composable
 fun ObservationCard(obs: FieldObservation, servedBy: String) {
+    val path = servedByLabel(servedBy)
+    val clean = obs.subject == "plant" &&
+        obs.symptoms.trim().lowercase() in listOf("", "none", "none.") &&
+        obs.extent == "none"
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Text("Field observation", fontWeight = FontWeight.Bold)
-            Text("Served by: $servedBy", style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(4.dp))
-            Text("Subject: ${obs.subject}")
+            Text("What we see ($path)", fontWeight = FontWeight.Bold)
             if (obs.cropGuess.isNotEmpty() && obs.cropGuess != "unknown") {
-                Text("Looks like: ${obs.cropGuess} (unconfirmed)")
+                Text("Looks like: ${obs.cropGuess} (not confirmed)")
             }
-            if (obs.symptoms.isNotEmpty()) Text("Seen: ${obs.symptoms}")
-            if (obs.location.isNotEmpty()) Text("Where: ${obs.location}")
-            Text("Extent: ${obs.extent}")
-            if (obs.notes.isNotEmpty()) Text("Notes: ${obs.notes}")
+            if (clean) {
+                Text("Nothing wrong seen on the leaves.")
+            } else {
+                if (obs.subject != "plant") Text("Subject: ${obs.subject}")
+                if (obs.symptoms.isNotEmpty()) Text("Seen: ${obs.symptoms}")
+                if (obs.location.isNotEmpty()) Text("Where: ${obs.location}")
+                Text("Extent: ${obs.extent}")
+                if (obs.notes.isNotEmpty()) Text("Notes: ${obs.notes}")
+            }
         }
+    }
+}
+
+fun servedByLabel(servedBy: String): String {
+    val s = servedBy.lowercase()
+    return when {
+        s.contains("cloud") -> "Checked online"
+        s.contains("device") -> "Checked on this phone"
+        else -> servedBy
     }
 }
 
@@ -74,19 +91,16 @@ fun ProposalCard(
     ) {
         Column(Modifier.padding(12.dp)) {
             Text(
-                "Proposed: ${priorityLabel(proposal.priority)}",
+                "Recommendation: ${priorityLabel(proposal.priority)}",
                 fontWeight = FontWeight.Bold,
                 color = priorityColor(proposal.priority)
             )
             proposal.reasons.forEach { Text("• $it") }
-            if (proposal.flags.isNotEmpty()) {
-                Text("Flags: ${proposal.flags.joinToString()}", style = MaterialTheme.typography.bodySmall)
-            }
             Spacer(Modifier.height(8.dp))
             if (workerPriority.isEmpty()) {
                 Text("Worker: confirm or override priority.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { onConfirm("prioritize_review") }) { Text("Prioritize") }
+                    Button(onClick = { onConfirm("prioritize_review") }) { Text("Expert soon") }
                     OutlinedButton(onClick = { onConfirm("standard_followup") }) { Text("Standard") }
                 }
             } else {
@@ -104,13 +118,17 @@ fun CloudCard(report: Report, online: Boolean, verifying: Boolean, onVerify: () 
             val cloud: CloudVerification? = report.cloud
             when {
                 cloud != null -> {
-                    when (report.agreementLevel()) {
+                    val bothClean = report.isCleanObservation() &&
+                        cloud.subject == "plant" && cloud.extent == "none"
+                    if (bothClean) {
+                        Text("Both checks found no problem.")
+                    } else when (report.agreementLevel()) {
                         "match" -> Text("Field and cloud agree.")
                         "small_diff" -> Text(
                             "Mostly agree — small detail difference " +
                                 "(field: ${report.observation.extent}, cloud: ${cloud.extent})."
                         )
-                        else -> Text("UPDATED ASSESSMENT — cloud sees it differently.")
+                        else -> Text("Updated check — the cloud sees it differently.")
                     }
                     Text(cloud.reviewNote)
                     cloud.questionsForExpert.forEach { Text("• Ask expert: $it") }
@@ -151,46 +169,105 @@ fun EscalationCard(reason: String, urgent: Boolean) {
 }
 
 @Composable
-fun VerdictHeadline(report: Report) {
-    val obs = report.observation
-    val pri = report.workerPriority.ifEmpty { report.proposal.priority }
-    val title: String
-    val detail: String
-    val color: Color
-    when {
-        obs.subject == "not_plant" -> {
-            title = "Not a plant"
-            detail = "Take a photo of a leaf to open a case."
-            color = Color(0xFF616161)
-        }
-        !obs.isUsableCase() -> {
-            title = "Photo unclear"
-            detail = "Retake a clear, close-up leaf photo."
-            color = Color(0xFF616161)
-        }
-        pri == "prioritize_review" -> {
-            title = "Needs expert review"
-            detail = report.proposal.reasons.firstOrNull() ?: "See reasons below."
-            color = Color(0xFFB71C1C)
-        }
-        else -> {
-            title = "Case recorded"
-            detail = "Standard follow-up. Worker confirms below."
-            color = Color(0xFF1B5E20)
-        }
+fun VerdictHeadline(
+    report: Report,
+    onCropConfirm: (String) -> Unit
+) {
+    if (report.showGreen()) {
+        GreenCard(report, onCropConfirm)
+        return
+    }
+    val h = report.headline()
+    val color = headlineColor(h.color)
+    val action = when (h.severity) {
+        "HIGH" -> "Show an expert before spraying. Call 1800-180-1551."
+        "MEDIUM" -> "Check nearby plants. Ask an expert within 2–3 days."
+        "LOW" -> "Watch it. Take a new photo in 3 days."
+        "UNCONFIRMED" -> "Go online to confirm this check."
+        else -> "Take a clear, close-up photo of one leaf."
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
     ) {
         Column(Modifier.padding(12.dp)) {
+            SeverityBadge(h.severity, color)
             Text(
-                title,
+                h.issue,
                 fontWeight = FontWeight.Bold,
                 color = color,
                 style = MaterialTheme.typography.titleLarge
             )
-            Text(detail)
+            Text(action)
+        }
+    }
+}
+
+fun headlineColor(name: String): Color = when (name) {
+    "red" -> Color(0xFFB71C1C)
+    "orange" -> Color(0xFFE65100)
+    "yellow" -> Color(0xFF8D6E00)
+    "green" -> Color(0xFF1B5E20)
+    else -> Color(0xFF616161)
+}
+
+@Composable
+fun SeverityBadge(severity: String, color: Color) {
+    val label = when (severity) {
+        "HIGH" -> "HIGH RISK"
+        "MEDIUM" -> "MEDIUM RISK"
+        "LOW" -> "LOW RISK"
+        "NONE" -> "HEALTHY"
+        "UNCONFIRMED" -> "NOT CONFIRMED"
+        else -> "RETAKE PHOTO"
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = color)) {
+        Text(
+            label,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+    Spacer(Modifier.height(6.dp))
+}
+
+@Composable
+private fun GreenCard(
+    report: Report,
+    onCropConfirm: (String) -> Unit
+) {
+    val obs = report.observation
+    val guess = obs.cropGuess
+    val chipUnknown = report.context.crop == "unknown" || report.context.crop == "other"
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            SeverityBadge("NONE", Color(0xFF1B5E20))
+            Text(
+                "Looks healthy",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1B5E20),
+                style = MaterialTheme.typography.titleLarge
+            )
+            if (guess.isNotEmpty() && guess != "unknown") {
+                Text("This looks like $guess.")
+            }
+            Text("No problems seen in this photo. This is not a guarantee.")
+            Text("Watch for: spots, holes, curling, or white powder.")
+            Text("Take a new photo in 3 days, or sooner if leaves change.")
+            Text("Not sure? Call Kisan Call Centre 1800-180-1551.")
+            if (chipUnknown && guess.isNotEmpty() && guess != "unknown") {
+                Spacer(Modifier.height(8.dp))
+                Text("Not sure it's $guess?")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onCropConfirm(guess) }) { Text("Yes") }
+                    OutlinedButton(onClick = { onCropConfirm("other") }) { Text("No") }
+                }
+            }
         }
     }
 }

@@ -1,3 +1,10 @@
 # Planning docs live alongside the repo but are not part of the code submission.
 crop-doctor-spec.md
 firebase-hybrid-ai-hackathon-details.md
+
+# Web build output and dependencies (never commit).
+web/node_modules/
+web/dist/
+
+# Firebase CLI cache.
+.firebase/

@@ -47,9 +47,16 @@ class RulesEngineTest {
     }
 
     @Test fun `unknown crop escalates`() {
-        val p = RulesEngine.propose(cleanCrop.copy(crop = "sugarcane"), mildObs)
+        val p = RulesEngine.propose(cleanCrop.copy(crop = "banana"), mildObs)
         assertEquals("prioritize_review", p.priority)
         assertTrue(p.flags.contains("UNKNOWN_CROP"))
+    }
+
+    @Test fun `selectable crops are covered`() {
+        listOf("cotton", "sugarcane", "soybean", "maize").forEach { crop ->
+            val p = RulesEngine.propose(cleanCrop.copy(crop = crop), mildObs)
+            assertTrue(p.flags.none { it == "UNKNOWN_CROP" })
+        }
     }
 
     @Test fun `low info escalates`() {

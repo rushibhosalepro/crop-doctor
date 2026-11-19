@@ -10,8 +10,9 @@ package com.cropdoctor.app.data
  */
 object RulesEngine {
 
-    // Coverage intent only. Unknown crop => escalate. No thresholds here.
-    val coveredCrops = setOf("paddy", "wheat", "tomato")
+    // All selectable crops are covered. Only genuinely unknown crops escalate.
+    // Rules stay crop-agnostic and escalate-only; no per-crop thresholds here.
+    val coveredCrops = setOf("paddy", "wheat", "tomato", "cotton", "sugarcane", "soybean", "maize")
 
     fun propose(context: LeafContext, obs: FieldObservation): PriorityProposal {
         // Not-a-case states first: no priority without a usable observation.
@@ -57,7 +58,7 @@ object RulesEngine {
             else ""
             reasons.add(
                 "Crop '${context.crop}' is outside the covered list " +
-                    "(paddy, wheat, tomato).$guessNote Expert review required."
+                    "(${coveredCrops.sorted().joinToString()}).$guessNote Expert review required."
             )
         }
         // R-LOW-INFO: too many unknowns => escalate, never guess.

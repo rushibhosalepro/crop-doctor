@@ -22,8 +22,8 @@ Try it in one minute, no sign-up:
    on the cloud fallback and the app says so.
 2. Tap a sample:
    - **Spotted**: damage case with a severity headline.
-   - **Healthy**: a mature green leaf. In the eval both checks still found
-     small marks on it, so it may not show green.
+   - **Green leaf**: a mature leaf that looks fine to the eye. In the eval
+     both checks still found small marks on it, so it may not show green.
    - **New shoots**: the two checks may disagree (red young mango leaves
      are normal); the timeline keeps both answers.
    - **Not plant**: safety test, asks for a retake.
@@ -31,6 +31,8 @@ Try it in one minute, no sign-up:
    raises it to high risk and asks for an expert first.
 4. Switch to **On-device only** (Chrome with Nano): the photo is never
    uploaded unless you ask for the cloud double-check.
+5. Switch the language to **मराठी** or **हिन्दी**. All of the app's own text
+   changes; the AI's free-text descriptions stay in English.
 
 ## Repo layout
 

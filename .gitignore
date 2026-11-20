@@ -9,6 +9,10 @@ web/dist/
 # Firebase CLI cache.
 .firebase/
 
+# Raw recordings and working assets (hundreds of MB, never commit).
+raw/
+images/
+
 # Local screen recordings and scratch images, not part of the submission.
 images/
 generated_images/

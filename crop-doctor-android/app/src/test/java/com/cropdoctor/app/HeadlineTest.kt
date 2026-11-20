@@ -65,6 +65,11 @@ class HeadlineTest {
         assertTrue(case(crop = "tomato").headline().issue.startsWith("Tomato"))
     }
 
+    @Test fun `cloud seeing marks blocks healthy`() {
+        val h = case(symptoms = "none", extent = "none", cloudExtent = "small", guess = "wheat").headline()
+        assertTrue(h.severity != "NONE")
+    }
+
     @Test fun `not a plant asks for retake`() {
         val r = case()
         val h = r.copy(observation = r.observation.copy(subject = "not_plant")).headline()

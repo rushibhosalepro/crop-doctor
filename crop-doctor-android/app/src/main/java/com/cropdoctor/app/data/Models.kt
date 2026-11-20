@@ -119,7 +119,9 @@ data class Report(
         val prefix = if (cropName != null) "$cropName: " else ""
         val c = cloud
         val cloudSaysPriority = c?.priority == "prioritize_review"
-        if (isCleanObservation() && !hasDangerFlags() && !cloudSaysPriority) {
+        // Green needs BOTH checks clean: the cloud seeing marks blocks "healthy".
+        val cloudClean = c == null || c.extent == "none"
+        if (isCleanObservation() && cloudClean && !hasDangerFlags() && !cloudSaysPriority) {
             return if (c != null && c.subject == "plant") Headline("${prefix}No problem seen", "NONE", "green")
             else Headline("${prefix}No problem seen yet", "UNCONFIRMED", "yellow")
         }

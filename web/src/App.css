@@ -187,3 +187,16 @@ select, input[type=text] { width: 100%; padding: 9px 10px; border-radius: 10px; 
 .seg.decision button.on { background: var(--primary); color: #fff; }
 .confirmed { font-size: 13px; font-weight: 700; color: var(--green); }
 @media (min-width: 901px) and (max-height: 820px) { .photo { height: 150px; } }
+/* ---------- Eval page ---------- */
+.eval-intro { padding: 14px 18px; margin-bottom: 12px; }
+.eval-intro p { margin: 0 0 10px; }
+.eval-run { width: auto; padding: 10px 18px; }
+.eval-summary { padding: 14px 18px; margin-bottom: 12px; }
+.eval-table-wrap { overflow-x: auto; }
+.eval-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.eval-table th, .eval-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.eval-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+.eval-table img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; }
+.crop-correct { color: var(--green); font-weight: 700; }
+.crop-wrong { color: var(--red); font-weight: 700; }
+.crop-said-unknown { color: var(--amber); font-weight: 700; }

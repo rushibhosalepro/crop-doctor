@@ -63,7 +63,9 @@ export function headline(obs, cloud, ctx) {
   if (recentSpray) reasons.push("Sprayed this week. An expert must check before anything new is applied.");
   if (cloudPriority) reasons.push("The cloud reviewer asked for an expert review.");
 
-  if (isClean(obs) && !recentSpray && !cloudPriority) {
+  // Green needs BOTH checks clean: the cloud seeing marks blocks "healthy".
+  const cloudClean = !cloud || cloud.extent === "none";
+  if (isClean(obs) && cloudClean && !recentSpray && !cloudPriority) {
     return cloud && cloud.subject === "plant"
       ? { issue: `${prefix}No problem seen`, severity: "NONE", reasons: ["Both checks found no visible problem."] }
       : { issue: `${prefix}No problem seen yet`, severity: "UNCONFIRMED", reasons: ["Only the first check has run."] };
@@ -79,7 +81,15 @@ export function headline(obs, cloud, ctx) {
   let issue = (obs.symptoms || "").trim().replace(/\.+$/, "");
   if (!issue || issue.toLowerCase() === "none") issue = recentSpray ? "Recent spray recorded" : "Possible problem seen";
   const severity = level >= 3 ? "HIGH" : level === 2 ? "MEDIUM" : "LOW";
-  return { issue: prefix + cap(issue.slice(0, 48)), severity, reasons };
+  return { issue: prefix + cap(shorten(issue, 60)), severity, reasons };
+}
+
+/** Cut at a word boundary, never mid-word ("some lea" bug). */
+export function shorten(s, max) {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max + 1);
+  const i = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf(","));
+  return (i > 20 ? cut.slice(0, i) : s.slice(0, max)).replace(/[,\s]+$/, "") + "…";
 }
 
 export function priorityLabel(p) {

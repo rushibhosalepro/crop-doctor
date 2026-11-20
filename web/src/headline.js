@@ -53,6 +53,15 @@ export function headline(obs, cloud, ctx) {
   if (obs.subject !== "plant" || obs.photoQuality === "poor") {
     return { issue: "Photo unclear", severity: "RETAKE", reasons: ["The leaf is too blurry, dark or far away to check."] };
   }
+  // The independent cloud check can veto a usable photo: if it sees no leaf
+  // or can't tell, the first answer isn't trusted on its own.
+  if (cloud && (cloud.subject === "not_plant" || cloud.subject === "unclear")) {
+    return {
+      issue: cloud.subject === "not_plant" ? "No leaf in this photo" : "Photo unclear",
+      severity: "RETAKE",
+      reasons: ["The cloud check couldn't see a usable leaf in this photo."],
+    };
+  }
   const raw = ["unknown", "other", "", undefined].includes(c.crop) ? obs.cropGuess : c.crop;
   const crop = raw && raw.trim() && raw !== "unknown" ? cap(raw.trim()) : null;
   const prefix = crop ? `${crop}: ` : "";

@@ -81,7 +81,7 @@ function Banner({ c }) {
   );
 }
 
-function FieldStep({ c }) {
+function FieldStep({ c, onRetryField }) {
   const st = stepState(c, "field");
   const o = c.field && c.field.obs;
   return (
@@ -103,7 +103,11 @@ function FieldStep({ c }) {
           {o.notes && <p className="note-line">{o.notes}</p>}
         </>
       )}
-      {st && st.state === "error" && <p className="err-line">{c.field.error}</p>}
+      {st && st.state === "error" && (
+        <p className="err-line">
+          {c.field.error} <button className="link" onClick={onRetryField}>Retry</button>
+        </p>
+      )}
       {st && st.state === "done" && c.field.source !== "on_device" && (
         <p className="hint">No on-device model in this browser, so this check ran in the cloud.</p>
       )}
@@ -126,6 +130,8 @@ function AgreePill({ c }) {
   if (!f || !k) return null;
   const level = agreement(f, k);
   const both = f.extent === "none" && k.extent === "none";
+  if ((both || level === "match") && k.priority === "prioritize_review")
+    return <li className="agree warn">✓ Both checks agree: {words(f.extent)}. The cloud also asked for an expert review.</li>;
   if (both || level === "match")
     return <li className="agree ok">✓ Both checks agree: {words(f.extent)}</li>;
   if (level === "small_diff")
@@ -225,7 +231,7 @@ function WorkerBar({ c, onWorker }) {
   );
 }
 
-export default function CaseFile({ c, onRetry, onWorker }) {
+export default function CaseFile({ c, onRetry, onRetryField, onWorker }) {
   if (!c) {
     return (
       <div className="empty">
@@ -250,7 +256,7 @@ export default function CaseFile({ c, onRetry, onWorker }) {
           <span className="case-id">Case {c.id} · {new Date(c.createdAt).toLocaleString()}</span>
         </div>
         <ol className="timeline">
-          <FieldStep c={c} />
+          <FieldStep c={c} onRetryField={onRetryField} />
           <AgreePill c={c} />
           <CloudStep c={c} onRetry={onRetry} onToggleCheck={onToggleCheck} />
         </ol>

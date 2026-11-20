@@ -95,7 +95,11 @@ export default function App() {
   useEffect(() => {
     if (devStatus !== "checking" && !deviceSupported && mode === "device") setMode("auto");
   }, [devStatus, deviceSupported, mode]);
-  useEffect(() => saveCases(cases), [cases]);
+  useEffect(() => {
+    if (!saveCases(cases)) {
+      setError("This browser's storage is full, so new cases may not survive a refresh. Clear old cases in History.");
+    }
+  }, [cases]);
 
   const patch = useCallback((id, fn) => {
     setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...fn(c) } : c)));
@@ -264,6 +268,16 @@ export default function App() {
     runCase(c, mode, deviceUsable);
   }
 
+  // Retry a failed first check (e.g. flaky connection) with the same mode.
+  function retryField() {
+    if (!active) return;
+    if (!active.image) {
+      setError("The photo for this case is no longer stored. Start a new case.");
+      return;
+    }
+    runCase({ ...active, field: null, cloud: null }, active.localOnly ? "device" : "auto", deviceUsable);
+  }
+
   // Retry a failed cloud step, or (on-device-only cases) send the photo to
   // the cloud because the worker explicitly asked for it.
   function retryCloud() {
@@ -400,6 +414,7 @@ export default function App() {
           <CaseFile
             c={active}
             onRetry={retryCloud}
+            onRetryField={retryField}
             onWorker={(w) => active && patch(active.id, (c) => ({ worker: { ...c.worker, ...w } }))}
           />
         </section>

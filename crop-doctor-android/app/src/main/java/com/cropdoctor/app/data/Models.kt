@@ -113,6 +113,11 @@ data class Report(
         val obs = observation
         if (obs.subject == "not_plant") return Headline("No leaf in photo", "RETAKE", "grey")
         if (!obs.isUsableCase()) return Headline("Photo unclear", "RETAKE", "grey")
+        // The independent cloud check can veto a usable photo.
+        when (cloud?.subject) {
+            "not_plant" -> return Headline("No leaf in photo", "RETAKE", "grey")
+            "unclear" -> return Headline("Photo unclear", "RETAKE", "grey")
+        }
         val cropName = (if (context.crop in setOf("unknown", "other")) obs.cropGuess else context.crop)
             .trim().takeIf { it.isNotEmpty() && it != "unknown" }
             ?.replaceFirstChar { it.uppercase() }

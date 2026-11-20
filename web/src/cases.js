@@ -15,16 +15,19 @@ export function loadCases() {
   }
 }
 
+/** Returns false when storage is full, so the app can warn the user. */
 export function saveCases(cases) {
   const list = cases.slice(0, MAX_CASES);
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
+    return true;
   } catch {
     // Storage full: keep metadata, drop full images of finished cases.
     try {
       localStorage.setItem(KEY, JSON.stringify(list.map((c) => (c.status === "waiting" ? c : { ...c, image: null }))));
+      return true;
     } catch {
-      /* give up silently; the case is still on screen */
+      return false; // the case is still on screen, but won't survive a refresh
     }
   }
 }

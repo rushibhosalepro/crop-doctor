@@ -70,6 +70,12 @@ class HeadlineTest {
         assertTrue(h.severity != "NONE")
     }
 
+    @Test fun `cloud seeing no leaf forces retake`() {
+        val r = case()
+        val h = r.copy(cloud = r.cloud!!.copy(subject = "not_plant")).headline()
+        assertEquals("RETAKE", h.severity)
+    }
+
     @Test fun `not a plant asks for retake`() {
         val r = case()
         val h = r.copy(observation = r.observation.copy(subject = "not_plant")).headline()

@@ -22,7 +22,8 @@ Try it in one minute, no sign-up:
    on the cloud fallback and the app says so.
 2. Tap a sample:
    - **Spotted**: damage case with a severity headline.
-   - **Healthy**: both checks agree, shown green.
+   - **Healthy**: a mature green leaf. In the eval both checks still found
+     small marks on it, so it may not show green.
    - **New shoots**: the two checks may disagree (red young mango leaves
      are normal); the timeline keeps both answers.
    - **Not plant**: safety test, asks for a retake.
@@ -40,6 +41,10 @@ Try it in one minute, no sign-up:
   [README](web/README.md).
 - `eval/`: 21 real field photos used as the eval smoke
   set (preliminary testing, not agricultural validation).
+  Results: [eval/RESULTS.md](eval/RESULTS.md). All 21 first checks ran on
+  Gemini Nano (median 3.6 s), the two checks agreed on damage within one
+  level for 17 of 20, and crop guessing from the photo alone was poor
+  (2 of 16), so the crop should come from the user's tap.
 
 ## Hybrid design (30 seconds)
 

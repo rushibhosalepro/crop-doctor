@@ -11,7 +11,7 @@ result is labeled with the path that served it.
 
 ## Live app
 
-**https://crop-doctor-d6c91.web.app**
+**https://crop-doctor-d6c91.web.app** · Demo video: **https://youtu.be/mc_QEsn7B_Y**
 
 Try it in one minute, no sign-up:
 
@@ -75,6 +75,6 @@ Try it in one minute, no sign-up:
 ## Submission
 
 - Live app: https://crop-doctor-d6c91.web.app
-- Demo video: (link added before deadline)
+- Demo video: https://youtu.be/mc_QEsn7B_Y
 - Platform: Android + Web (Chrome)
 - License: Apache 2.0 (see LICENSE)

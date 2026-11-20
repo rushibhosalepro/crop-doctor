@@ -12,6 +12,8 @@ import com.google.firebase.ai.ondevice.OnDeviceModelStatus
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.PublicPreviewAPI
 import com.google.firebase.ai.type.content
+import com.cropdoctor.app.util.AppLang
+import com.cropdoctor.app.util.stringsFor
 import kotlinx.coroutines.withTimeout
 
 /**
@@ -97,7 +99,8 @@ object AiClient {
         bitmap: Bitmap,
         context: LeafContext,
         note: String,
-        onlyOnDevice: Boolean = false
+        onlyOnDevice: Boolean = false,
+        lang: AppLang = AppLang.EN
     ): Pair<FieldObservation, String> {
         val prompt = content {
             image(bitmap)
@@ -109,11 +112,11 @@ object AiClient {
             } catch (_: Exception) {
                 false
             }
-            if (!ready) throw Exception("On-device model is not available on this phone. Switch to Auto (hybrid).")
+            if (!ready) throw Exception(stringsFor(lang).errNoOnDevice)
             val response = withTimeout(60_000L) {
                 onDeviceOnlyModel.generateContent(prompt)
             }
-            return parseObservation(response.text.orEmpty()) to response.inferenceSource.toString()
+            return parseObservation(response.text.orEmpty(), lang) to response.inferenceSource.toString()
         }
         val onDeviceReady = try {
             FirebaseAIOnDevice.checkStatus() == OnDeviceModelStatus.AVAILABLE
@@ -125,11 +128,16 @@ object AiClient {
         val response = withTimeout(60_000L) {
             model.generateContent(prompt)
         }
-        return parseObservation(response.text.orEmpty()) to response.inferenceSource.toString()
+        return parseObservation(response.text.orEmpty(), lang) to response.inferenceSource.toString()
     }
 
     /** Independent cloud review. Returns (verification, servedByPath). */
-    suspend fun verify(bitmap: Bitmap, context: LeafContext, note: String): Pair<CloudVerification, String> {
+    suspend fun verify(
+        bitmap: Bitmap,
+        context: LeafContext,
+        note: String,
+        lang: AppLang = AppLang.EN
+    ): Pair<CloudVerification, String> {
         val prompt = content {
             image(bitmap)
             text(VERIFY_PROMPT + contextBlock(context, note))
@@ -137,7 +145,7 @@ object AiClient {
         val response = withTimeout(60_000L) {
             verifyModel.generateContent(prompt)
         }
-        return parseVerification(response.text.orEmpty()) to response.inferenceSource.toString()
+        return parseVerification(response.text.orEmpty(), lang) to response.inferenceSource.toString()
     }
 
     private fun contextBlock(context: LeafContext, note: String): String {

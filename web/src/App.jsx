@@ -9,42 +9,43 @@ import {
   contextText,
   isUsable,
 } from "./ai.js";
-import { headline, BADGES, TONES } from "./headline.js";
+import { headline, badgeFor, TONES } from "./headline.js";
+import { LANGS, LOCALES, STR, tx, useLang } from "./i18n.js";
 import { loadCases, saveCases, newCaseId, makeThumb } from "./cases.js";
 import CaseFile from "./CaseFile.jsx";
 
-const MODEL_TEXT = {
-  checking: ["Checking…", "slate"],
-  no_api: ["No on-device AI in this browser", "slate"],
-  unavailable: ["On-device AI not supported here", "slate"],
-  downloadable: ["On-device model not downloaded", "amber"],
-  downloading: ["On-device model downloading…", "amber"],
-  available: ["Gemini Nano ready", "green"],
+const MODEL_TONE = {
+  checking: "slate",
+  no_api: "slate",
+  unavailable: "slate",
+  downloadable: "amber",
+  downloading: "amber",
+  available: "green",
 };
-const MODEL_HELP = {
-  no_api: "On-device AI needs Google Chrome on desktop (v139+) with chrome://flags/#prompt-api-for-gemini-nano-multimodal-input enabled. Edge and other browsers don't ship Gemini Nano. Auto mode uses the cloud meanwhile.",
-  unavailable: "This computer doesn't meet Chrome's on-device model requirements. Auto mode uses the cloud.",
+const MODEL_HELP_KEY = {
+  no_api: "model_help_no_api",
+  unavailable: "model_help_unavailable",
 };
 
-const CROPS = [
-  ["unknown", "Not sure"],
-  ["cotton", "Cotton"], ["paddy", "Paddy"], ["wheat", "Wheat"], ["tomato", "Tomato"],
-  ["sugarcane", "Sugarcane"], ["soybean", "Soybean"], ["maize", "Maize"], ["mango", "Mango"],
-  ["chili", "Chili"], ["papaya", "Papaya"], ["chikoo", "Chikoo"], ["fenugreek", "Fenugreek"],
-  ["other", "Other"],
+const CROP_VALUES = [
+  "unknown",
+  "cotton", "paddy", "wheat", "tomato",
+  "sugarcane", "soybean", "maize", "mango",
+  "chili", "papaya", "chikoo", "fenugreek",
+  "other",
 ];
 
-const CHIPS = [
-  { key: "spray", label: "Last spray", options: [["none", "None in 4 weeks"], ["recent", "This week"], ["not_sure", "Not sure"]], warn: "recent" },
-  { key: "water", label: "Watering", options: [["dry", "Dry"], ["normal", "Normal"], ["wet", "Waterlogged"], ["not_sure", "Not sure"]] },
-  { key: "stage", label: "Crop stage", options: [["seedling", "Seedling"], ["growing", "Growing"], ["flowering", "Flowering"], ["not_sure", "Not sure"]] },
+const CHIP_KEYS = [
+  { key: "spray", values: ["none", "recent", "not_sure"], warn: "recent" },
+  { key: "water", values: ["dry", "normal", "wet", "not_sure"] },
+  { key: "stage", values: ["seedling", "growing", "flowering", "not_sure"] },
 ];
 
-const SAMPLES = [
-  { src: "samples/sample_spotted.jpg", label: "Spotted", hint: "Damage case" },
-  { src: "samples/sample_healthy.jpg", label: "Healthy", hint: "Mature green leaf" },
-  { src: "samples/sample_newshoots.jpg", label: "New shoots", hint: "Checks may disagree" },
-  { src: "samples/sample_notplant.jpg", label: "Not plant", hint: "Safety test" },
+const SAMPLE_SRCS = [
+  "samples/sample_spotted.jpg",
+  "samples/sample_healthy.jpg",
+  "samples/sample_newshoots.jpg",
+  "samples/sample_notplant.jpg",
 ];
 
 const DEFAULT_CTX = { crop: "unknown", spray: "not_sure", water: "not_sure", stage: "not_sure", note: "" };
@@ -69,12 +70,13 @@ const errText = (e) => String((e && e.message) || e);
 export default function App() {
   const configured = isConfigured();
   const online = useOnline();
+  const [lang, setLang] = useLang();
   const [mode, setMode] = useState("auto");
   const [devStatus, setDevStatus] = useState("checking");
   const [progress, setProgress] = useState(0);
   const [preparing, setPreparing] = useState(false);
   const [image, setImage] = useState(null);
-  const [picked, setPicked] = useState("");
+  const [picked, setPicked] = useState(-1);
   const [ctx, setCtx] = useState(DEFAULT_CTX);
   const [showNote, setShowNote] = useState(false);
   const [error, setError] = useState("");
@@ -84,6 +86,7 @@ export default function App() {
   const resultRef = useRef(null);
   const busyRef = useRef(new Set()); // case ids with a step in flight
 
+  const t = (key) => tx(lang, key);
   const deviceUsable = devStatus === "available";
   const deviceSupported = !["no_api", "unavailable", "checking"].includes(devStatus);
   const active = cases.find((c) => c.id === activeId) || null;
@@ -97,8 +100,9 @@ export default function App() {
   }, [devStatus, deviceSupported, mode]);
   useEffect(() => {
     if (!saveCases(cases)) {
-      setError("This browser's storage is full, so new cases may not survive a refresh. Clear old cases in History.");
+      setError(t("err_storage"));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cases]);
 
   const patch = useCallback((id, fn) => {
@@ -136,7 +140,7 @@ export default function App() {
             const source = res.response.inferenceSource || "unknown";
             // The SDK can silently use the cloud even in ONLY_ON_DEVICE mode.
             if (runMode === "device" && source !== "on_device") {
-              throw new Error("Expected an on-device answer, but it came from: " + source);
+              throw new Error(t("err_device_source") + source);
             }
             field = { obs: JSON.parse(extractJson(res.response.text())), source, ms };
             patch(id, () => ({ field }));
@@ -184,7 +188,7 @@ export default function App() {
         busyRef.current.delete(id);
       }
     },
-    [patch]
+    [patch, lang]
   );
 
   // Back online: finish every case that was waiting for signal.
@@ -201,7 +205,7 @@ export default function App() {
       // Must run on a user gesture, before any model query.
       await getModels().prefer.initializeDeviceModel((v) => setProgress(Math.round(v * 100)));
     } catch (e) {
-      setError("Prepare failed: " + errText(e));
+      setError(t("err_prepare") + errText(e));
     } finally {
       // Report what the browser really says, not just that the call returned.
       setDevStatus(await onDeviceStatus());
@@ -216,34 +220,34 @@ export default function App() {
     setError("");
     try {
       setImage(await fileToDownscaled(f));
-      setPicked("");
+      setPicked(-1);
     } catch (e) {
       setError(errText(e));
     }
   }
 
-  async function onSample(s) {
+  async function onSample(i) {
     setError("");
-    setPicked(s.label);
+    setPicked(i);
     try {
-      const blob = await (await fetch(s.src)).blob();
+      const blob = await (await fetch(SAMPLE_SRCS[i])).blob();
       const img = await fileToDownscaled(blob);
       setImage(img);
-      analyze(img);
+      analyze(img, i);
     } catch (e) {
-      setError("Sample failed: " + errText(e));
+      setError(t("err_sample") + errText(e));
     }
   }
 
-  async function analyze(explicit) {
+  async function analyze(explicit, sampleIdx = picked) {
     setError("");
     const img = explicit || image;
     if (!img) {
-      setError("Pick a photo or tap a sample first.");
+      setError(t("err_pick_first"));
       return;
     }
     if (mode === "device" && !deviceUsable) {
-      setError("On-device only needs the on-device model. " + MODEL_TEXT[devStatus][0] + ".");
+      setError(t("err_device_need") + t("model_" + devStatus) + ".");
       return;
     }
     const c = {
@@ -252,7 +256,7 @@ export default function App() {
       ctx: { ...ctx },
       thumb: await makeThumb(img.previewUrl),
       image: { base64: img.base64, mimeType: img.mimeType },
-      sample: picked,
+      sample: sampleIdx >= 0 ? STR.en.samples[sampleIdx].label : "",
       localOnly: mode === "device",
       status: "running",
       field: null,
@@ -272,7 +276,7 @@ export default function App() {
   function retryField() {
     if (!active) return;
     if (!active.image) {
-      setError("The photo for this case is no longer stored. Start a new case.");
+      setError(t("err_photo_gone"));
       return;
     }
     runCase({ ...active, field: null, cloud: null }, active.localOnly ? "device" : "auto", deviceUsable);
@@ -283,7 +287,7 @@ export default function App() {
   function retryCloud() {
     if (!active) return;
     if (!active.image) {
-      setError("The photo for this case is no longer stored. Start a new case.");
+      setError(t("err_photo_gone"));
       return;
     }
     const next = { ...active, cloud: null, localOnly: false };
@@ -292,15 +296,18 @@ export default function App() {
   }
 
   const setChip = (key, val) => setCtx((p) => ({ ...p, [key]: val }));
-  const [modelLabel, modelTone] = MODEL_TEXT[devStatus] || [devStatus, "slate"];
+  const modelLabel = t("model_" + devStatus);
+  const modelTone = MODEL_TONE[devStatus] || "slate";
+  const modelHelp = MODEL_HELP_KEY[devStatus] ? t(MODEL_HELP_KEY[devStatus]) : "";
   const waitingCount = cases.filter((c) => c.status === "waiting").length;
+  const samples = STR[lang].samples;
   const runLabel = !busy
-    ? "Analyze leaf case →"
+    ? t("run_analyze")
     : active.field && active.field.obs
-      ? "Double-checking in cloud…"
+      ? t("run_double")
       : mode === "device" || deviceUsable
-        ? "Checking on this device…"
-        : "Checking in cloud…";
+        ? t("run_device")
+        : t("run_cloud");
 
   return (
     <div className="app">
@@ -309,96 +316,103 @@ export default function App() {
           <div className="logo">🌿</div>
           <div>
             <div className="title">Crop Doctor</div>
-            <div className="sub">Snap a leaf. Get a case file, with or without signal.</div>
+            <div className="sub">{t("appTag")}</div>
           </div>
         </div>
         <div className="top-actions">
-          <span className={"pill tone-" + (online ? "green" : "amber")}>{online ? "● Online" : "● Offline"}</span>
-          <span className={"pill tone-" + modelTone} title={MODEL_HELP[devStatus] || ""}>
+          <span className={"pill tone-" + (online ? "green" : "amber")}>{online ? t("online") : t("offline")}</span>
+          <span className={"pill tone-" + modelTone} title={modelHelp}>
             {modelLabel}
             {deviceSupported && !deviceUsable && (
               <button className="pill-btn" onClick={prepare} disabled={preparing || !configured}>
-                {preparing ? `${progress}%` : "Prepare"}
+                {preparing ? `${progress}%` : t("prepare")}
               </button>
             )}
           </span>
           <div className="seg" role="group" aria-label="Inference mode">
-            <button className={mode === "auto" ? "on" : ""} onClick={() => setMode("auto")}>Auto (hybrid)</button>
+            <button className={mode === "auto" ? "on" : ""} onClick={() => setMode("auto")}>{t("modeAuto")}</button>
             <button
               className={mode === "device" ? "on" : ""}
               onClick={() => setMode("device")}
               disabled={!deviceSupported}
-              title={deviceSupported ? "First check never uses the cloud" : MODEL_HELP[devStatus] || ""}
+              title={deviceSupported ? t("modeDeviceTitle") : modelHelp}
             >
-              On-device only
+              {t("modeDevice")}
             </button>
           </div>
+          <div className="seg" role="group" aria-label={t("langLabel")}>
+            {LANGS.map((l) => (
+              <button key={l.id} className={lang === l.id ? "on" : ""} onClick={() => setLang(l.id)}>
+                {l.label}
+              </button>
+            ))}
+          </div>
           <button className="btn-ghost" onClick={() => setHistoryOpen(true)}>
-            History <span className="count">{cases.length}</span>
-            {waitingCount > 0 && <span className="count wait">{waitingCount} waiting</span>}
+            {t("history")} <span className="count">{cases.length}</span>
+            {waitingCount > 0 && <span className="count wait">{waitingCount} {t("waiting")}</span>}
           </button>
         </div>
       </header>
 
-      {!configured && <div className="banner-inline tone-amber">Firebase isn't configured. See README.</div>}
-      {MODEL_HELP[devStatus] && <div className="banner-inline tone-slate">{MODEL_HELP[devStatus]}</div>}
+      {!configured && <div className="banner-inline tone-amber">{t("firebaseMissing")}</div>}
+      {modelHelp && <div className="banner-inline tone-slate">{modelHelp}</div>}
 
       <main className="workspace">
         <section className="pane capture card">
           <div className="pane-head">
-            <h3>1. Leaf photo</h3>
+            <h3>{t("step1")}</h3>
             <label className="link">
-              ⬆ Upload photo
+              {t("uploadPhoto")}
               <input type="file" accept="image/jpeg,image/png" capture="environment" onChange={onFile} hidden />
             </label>
           </div>
           <label className="photo">
-            {image ? <img src={image.previewUrl} alt="Chosen leaf" /> : <span>Tap to take or upload a leaf photo</span>}
-            {image && picked && <span className="photo-tag">Sample: {picked}</span>}
+            {image ? <img src={image.previewUrl} alt="Chosen leaf" /> : <span>{t("photoTap")}</span>}
+            {image && picked >= 0 && <span className="photo-tag">{t("sampleTag")}{samples[picked].label}</span>}
             <input type="file" accept="image/jpeg,image/png" capture="environment" onChange={onFile} hidden />
           </label>
 
-          <div className="label">Or try a sample (one tap analyzes)</div>
+          <div className="label">{t("trySample")}</div>
           <div className="samples">
-            {SAMPLES.map((s) => (
-              <button key={s.label} className={"sample" + (picked === s.label ? " picked" : "")} onClick={() => onSample(s)} disabled={busy || !configured}>
-                <img src={s.src} alt="" />
+            {samples.map((s, i) => (
+              <button key={SAMPLE_SRCS[i]} className={"sample" + (picked === i ? " picked" : "")} onClick={() => onSample(i)} disabled={busy || !configured}>
+                <img src={SAMPLE_SRCS[i]} alt="" />
                 <span><b>{s.label}</b><small>{s.hint}</small></span>
               </button>
             ))}
           </div>
 
           <div className="pane-head">
-            <h3>2. Quick context <small>(optional, tap if known)</small></h3>
+            <h3>{t("step2")} <small>{t("step2opt")}</small></h3>
           </div>
-          <p className="hint tip">Tip: set Last spray to “This week” and analyze again to see the spray-safety rule.</p>
+          <p className="hint tip">{t("sprayTip")}</p>
           <div className="chip-row">
-            <span className="chip-label">Crop</span>
+            <span className="chip-label">{t("cropLabel")}</span>
             <select value={ctx.crop} onChange={(e) => setChip("crop", e.target.value)}>
-              {CROPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {CROP_VALUES.map((v) => <option key={v} value={v}>{STR[lang].crops[v]}</option>)}
             </select>
           </div>
-          {CHIPS.map((q) => (
+          {CHIP_KEYS.map((q) => (
             <div className="chip-row" key={q.key}>
-              <span className="chip-label">{q.label}</span>
+              <span className="chip-label">{STR[lang].chips[q.key].label}</span>
               <div className="chips">
-                {q.options.map(([v, l]) => (
+                {q.values.map((v) => (
                   <button
                     key={v}
                     className={"chip" + (ctx[q.key] === v ? (q.warn === v ? " on warn" : " on") : "")}
                     onClick={() => setChip(q.key, v)}
                   >
-                    {l}
+                    {STR[lang].chips[q.key][v]}
                   </button>
                 ))}
               </div>
             </div>
           ))}
-          {ctx.spray === "recent" && <p className="hint warn-text">Recent spray: the result will ask for an expert before anything new is applied.</p>}
+          {ctx.spray === "recent" && <p className="hint warn-text">{t("sprayWarn")}</p>}
           {showNote ? (
-            <input type="text" placeholder="Field note: what do you see? (e.g. started 3 days ago)" value={ctx.note} onChange={(e) => setChip("note", e.target.value)} />
+            <input type="text" placeholder={t("notePh")} value={ctx.note} onChange={(e) => setChip("note", e.target.value)} />
           ) : (
-            <button className="link" onClick={() => setShowNote(true)}>+ Add field note</button>
+            <button className="link" onClick={() => setShowNote(true)}>{t("addNote")}</button>
           )}
 
           <div className="run-bar">
@@ -413,6 +427,7 @@ export default function App() {
         <section className="pane result" ref={resultRef}>
           <CaseFile
             c={active}
+            lang={lang}
             onRetry={retryCloud}
             onRetryField={retryField}
             onWorker={(w) => active && patch(active.id, (c) => ({ worker: { ...c.worker, ...w } }))}
@@ -421,35 +436,35 @@ export default function App() {
       </main>
 
       <footer className="footer card">
-        <b>AI observation only.</b> Confirm with a local agronomist before spraying. Kisan Call Centre:{" "}
-        <a href="tel:18001801551">1800-180-1551</a> (toll-free, 6 AM–10 PM). Demo only, not for real-world use before agronomist review.
+        <b>{t("footer_ai")}</b> {t("footer_confirm")}
+        <a href="tel:18001801551">1800-180-1551</a> {t("footer_hours")}
       </footer>
 
       {historyOpen && (
         <div className="drawer-bg" onClick={() => setHistoryOpen(false)}>
           <aside className="drawer" onClick={(e) => e.stopPropagation()}>
             <div className="pane-head">
-              <h3>Case history <small>(this browser)</small></h3>
-              <button className="link" onClick={() => setHistoryOpen(false)}>Close ✕</button>
+              <h3>{t("hist_title")} <small>{t("hist_browser")}</small></h3>
+              <button className="link" onClick={() => setHistoryOpen(false)}>{t("hist_close")}</button>
             </div>
-            {cases.length === 0 && <p className="hint">No cases yet.</p>}
+            {cases.length === 0 && <p className="hint">{t("hist_empty")}</p>}
             {cases.map((c) => {
-              const h = c.field && c.field.obs ? headline(c.field.obs, c.cloud && c.cloud.obs, c.ctx) : null;
+              const h = c.field && c.field.obs ? headline(c.field.obs, c.cloud && c.cloud.obs, c.ctx, lang) : null;
               return (
                 <button key={c.id} className={"hist" + (c.id === activeId ? " on" : "")} onClick={() => { setActiveId(c.id); setHistoryOpen(false); }}>
                   {c.thumb ? <img src={c.thumb} alt="" /> : <span className="hist-ph" />}
                   <span className="hist-body">
-                    <b>{h ? h.issue : c.status === "waiting" ? "Waiting for signal" : c.status === "error" ? "Check failed" : "Checking…"}</b>
-                    <small>{c.id} · {new Date(c.createdAt).toLocaleString()}</small>
-                    {h && <span className={"sev-mini tone-" + TONES[h.severity]}>{BADGES[h.severity]}</span>}
-                    {c.status === "waiting" && <span className="sev-mini tone-amber">⏳ Waiting for signal</span>}
+                    <b>{h ? h.issue : c.status === "waiting" ? t("hist_waiting") : c.status === "error" ? t("hist_failed") : t("hist_checking")}</b>
+                    <small>{c.id} · {new Date(c.createdAt).toLocaleString(LOCALES[lang])}</small>
+                    {h && <span className={"sev-mini tone-" + TONES[h.severity]}>{badgeFor(h.severity, lang)}</span>}
+                    {c.status === "waiting" && <span className="sev-mini tone-amber">{t("hist_waiting_pill")}</span>}
                   </span>
                 </button>
               );
             })}
             {cases.length > 0 && (
-              <button className="link danger" onClick={() => { if (confirm("Delete all saved cases in this browser?")) { setCases([]); setActiveId(null); } }}>
-                Clear history
+              <button className="link danger" onClick={() => { if (confirm(t("hist_confirm"))) { setCases([]); setActiveId(null); } }}>
+                {t("hist_clear")}
               </button>
             )}
           </aside>

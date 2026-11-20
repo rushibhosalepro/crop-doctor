@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Crop Doctor</string>
+    <string name="helpline">किसान कॉल सेंटर: 1800-180-1551 (टोल-फ्री, सुबह 6–रात 10)</string>
+    <string name="disclaimer">AI अनुमान: छिड़काव से पहले स्थानीय विशेषज्ञ से पुष्टि करें.</string>
+</resources>

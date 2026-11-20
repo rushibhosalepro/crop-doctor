@@ -37,7 +37,8 @@ class HeadlineTest {
     @Test fun `visible damage shows issue and medium severity, not case recorded`() {
         val h = case().headline()
         assertEquals("MEDIUM", h.severity)
-        assertEquals("Cotton: Yellow patches and small holes", h.issue)
+        // Crop not tapped: the model's guess must not appear in the headline.
+        assertEquals("Yellow patches and small holes", h.issue)
     }
 
     @Test fun `unknown crop and unanswered chips do not raise severity`() {
@@ -46,7 +47,7 @@ class HeadlineTest {
             flags = listOf("UNKNOWN_CROP", "LOW_INFO"), guess = "mango"
         ).headline()
         assertEquals("NONE", h.severity)
-        assertTrue(h.issue.startsWith("Mango"))
+        assertTrue(!h.issue.startsWith("Mango"))
     }
 
     @Test fun `danger flag forces high`() {

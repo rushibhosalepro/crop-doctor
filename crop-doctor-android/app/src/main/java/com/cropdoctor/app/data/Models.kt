@@ -1,5 +1,8 @@
 package com.cropdoctor.app.data
 
+import com.cropdoctor.app.util.AppLang
+import com.cropdoctor.app.util.cropDisplayName
+import com.cropdoctor.app.util.stringsFor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -109,32 +112,34 @@ data class Report(
      * flags. A missing crop or unanswered chips never raise it. Escalate-only:
      * no "all clear" without cloud agreement. Names symptoms, never diseases.
      */
-    fun headline(): Headline {
+    fun headline(lang: AppLang = AppLang.EN): Headline {
+        val s = stringsFor(lang)
         val obs = observation
-        if (obs.subject == "not_plant") return Headline("No leaf in photo", "RETAKE", "grey")
-        if (!obs.isUsableCase()) return Headline("Photo unclear", "RETAKE", "grey")
+        if (obs.subject == "not_plant") return Headline(s.hlNoLeaf, "RETAKE", "grey")
+        if (!obs.isUsableCase()) return Headline(s.hlUnclear, "RETAKE", "grey")
         // The independent cloud check can veto a usable photo.
         when (cloud?.subject) {
-            "not_plant" -> return Headline("No leaf in photo", "RETAKE", "grey")
-            "unclear" -> return Headline("Photo unclear", "RETAKE", "grey")
+            "not_plant" -> return Headline(s.hlNoLeaf, "RETAKE", "grey")
+            "unclear" -> return Headline(s.hlUnclear, "RETAKE", "grey")
         }
-        val cropName = (if (context.crop in setOf("unknown", "other")) obs.cropGuess else context.crop)
-            .trim().takeIf { it.isNotEmpty() && it != "unknown" }
-            ?.replaceFirstChar { it.uppercase() }
+        // Only a crop the user tapped: the eval showed the model guesses it right 2 of 16 times.
+        val rawName = (if (context.crop in setOf("unknown", "other")) "" else context.crop).trim()
+        val cropName = rawName.takeIf { it.isNotEmpty() && it != "unknown" }
+            ?.let { cropDisplayName(it, lang) }
         val prefix = if (cropName != null) "$cropName: " else ""
         val c = cloud
         val cloudSaysPriority = c?.priority == "prioritize_review"
         // Green needs BOTH checks clean: the cloud seeing marks blocks "healthy".
         val cloudClean = c == null || c.extent == "none"
         if (isCleanObservation() && cloudClean && !hasDangerFlags() && !cloudSaysPriority) {
-            return if (c != null && c.subject == "plant") Headline("${prefix}No problem seen", "NONE", "green")
-            else Headline("${prefix}No problem seen yet", "UNCONFIRMED", "yellow")
+            return if (c != null && c.subject == "plant") Headline("${prefix}${s.hlNoProblem}", "NONE", "green")
+            else Headline("${prefix}${s.hlNoProblemYet}", "UNCONFIRMED", "yellow")
         }
         fun rank(e: String) = when (e) { "large" -> 3; "moderate" -> 2; "small" -> 1; "none" -> 0; else -> 2 }
         var level = maxOf(rank(obs.extent), c?.let { rank(it.extent) } ?: 0)
         if (hasDangerFlags() || cloudSaysPriority) level = 3
         val issue = obs.symptoms.trim().trimEnd('.').let {
-            if (it.isEmpty() || it.lowercase() == "none") "Possible problem seen" else it.take(48)
+            if (it.isEmpty() || it.lowercase() == "none") s.hlPossible else it.take(48)
         }
         val (sev, color) = when (level) {
             3 -> "HIGH" to "red"
@@ -157,19 +162,19 @@ data class Report(
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-fun parseObservation(raw: String): FieldObservation {
+fun parseObservation(raw: String, lang: AppLang = AppLang.EN): FieldObservation {
     return try {
         json.decodeFromString<FieldObservation>(extractJson(raw))
     } catch (_: Exception) {
-        FieldObservation(subject = "unclear", notes = "Model reply unreadable.")
+        FieldObservation(subject = "unclear", notes = stringsFor(lang).replyUnreadable)
     }
 }
 
-fun parseVerification(raw: String): CloudVerification {
+fun parseVerification(raw: String, lang: AppLang = AppLang.EN): CloudVerification {
     return try {
         json.decodeFromString<CloudVerification>(extractJson(raw))
     } catch (_: Exception) {
-        CloudVerification(reviewNote = "Cloud review unreadable. Expert follow-up required.")
+        CloudVerification(reviewNote = stringsFor(lang).cloudUnreadable)
     }
 }
 

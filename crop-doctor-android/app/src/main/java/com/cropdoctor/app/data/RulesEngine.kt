@@ -1,5 +1,8 @@
 package com.cropdoctor.app.data
 
+import com.cropdoctor.app.util.AppLang
+import com.cropdoctor.app.util.stringsFor
+
 /**
  * Safety-critical rules engine. Pure Kotlin, fully unit-tested (see
  * RulesEngineTest). Contract v2 enforced here:
@@ -20,19 +23,24 @@ object RulesEngine {
         "mango", "chili", "papaya", "chikoo", "fenugreek"
     )
 
-    fun propose(context: LeafContext, obs: FieldObservation): PriorityProposal {
+    fun propose(
+        context: LeafContext,
+        obs: FieldObservation,
+        lang: AppLang = AppLang.EN
+    ): PriorityProposal {
+        val s = stringsFor(lang)
         // Not-a-case states first: no priority without a usable observation.
         if (obs.subject == "not_plant") {
             return PriorityProposal(
                 "standard_followup",
-                listOf("Not a plant. No case opened. Retake with a leaf photo."),
+                listOf(s.ruleNotPlant),
                 listOf("NOT_PLANT")
             )
         }
         if (obs.subject == "unclear" || obs.photoQuality == "poor") {
             return PriorityProposal(
                 "standard_followup",
-                listOf("Photo unusable. Retake a clear, close-up leaf photo."),
+                listOf(s.ruleRetake),
                 listOf("NEEDS_RETAKE")
             )
         }
@@ -46,10 +54,7 @@ object RulesEngine {
         if (context.spray == "today" || context.spray == "this_week") {
             prioritize = true
             flags.add("RECENT_SPRAY")
-            reasons.add(
-                "Recent application recorded (${context.spray}). " +
-                    "Expert must review before any new recommendation."
-            )
+            reasons.add(s.ruleSprayPrefix + context.spray + s.ruleSpraySuffix)
         }
         // R-UNKNOWN-CROP: worker couldn't name the crop. Info flag only, never
         // red on its own: the crop-confirm prompt handles it. The model's
@@ -58,11 +63,11 @@ object RulesEngine {
             flags.add("UNKNOWN_CROP")
             val guess = obs.cropGuess
             val guessNote = if (guess.isNotEmpty() && guess != "unknown") {
-                " The photo looks like $guess (not confirmed)."
+                s.ruleCropGuessPrefix + guess + s.ruleCropGuessSuffix
             } else {
                 ""
             }
-            reasons.add("Crop not identified.$guessNote An expert should confirm the crop.")
+            reasons.add(s.ruleCropUnknown + guessNote + s.ruleCropConfirm)
         }
         // R-LOW-INFO: too many unknowns. Info flag only, never red on its
         // own: the questions prompt handles it.
@@ -72,23 +77,23 @@ object RulesEngine {
         ).count { it == "not_sure" }
         if (unsure >= 4) {
             flags.add("LOW_INFO")
-            reasons.add("Only a few details were given. Answer the quick questions for a better check.")
+            reasons.add(s.ruleLowInfo)
         }
         // R-EXTENT: large visible extent => prioritize. UNVALIDATED threshold.
         if (obs.extent == "large") {
             prioritize = true
             flags.add("LARGE_EXTENT")
-            reasons.add("Large visible extent reported. Prioritize expert review.")
+            reasons.add(s.ruleLargeExtent)
         }
         // R-SPREAD: fast spread per worker report => prioritize. UNVALIDATED.
         if (context.spread == "fast") {
             prioritize = true
             flags.add("FAST_SPREAD")
-            reasons.add("Spreading fast (worker report). Prioritize expert review.")
+            reasons.add(s.ruleFastSpread)
         }
 
         if (!prioritize) {
-            reasons.add("No escalation triggers. Worker confirms final priority.")
+            reasons.add(s.ruleNoTriggers)
         }
         return PriorityProposal(
             priority = if (prioritize) "prioritize_review" else "standard_followup",

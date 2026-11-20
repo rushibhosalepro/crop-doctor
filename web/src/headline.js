@@ -5,26 +5,20 @@
 //   A missing crop or unanswered chips never raise it.
 // - "Healthy" needs the cloud check too; offline clean is "Not confirmed".
 // - Names symptoms, never diseases.
+//
+// All fixed text is translated via i18n.js (lang: en|mr|hi). The model's own
+// free text (symptoms) stays in English, as the prompts require.
+import { tx, cropDisplay } from "./i18n.js";
 
 const RANK = { none: 0, small: 1, moderate: 2, large: 3 };
 
-export const ACTIONS = {
-  HIGH: "Show an expert before spraying. Do not apply anything new until checked.",
-  MEDIUM: "Check nearby plants. Ask an expert within 2–3 days.",
-  LOW: "Watch it. Take a new photo in 3 days.",
-  NONE: "No problem seen. Not a guarantee. Watch for spots, holes, curling or white powder. New photo in 3 days.",
-  UNCONFIRMED: "Nothing seen on this device. Go online so the cloud can confirm.",
-  RETAKE: "Take a clear, close-up photo of one leaf.",
-};
+export function actionFor(severity, lang) {
+  return tx(lang, "action_" + severity);
+}
 
-export const BADGES = {
-  HIGH: "HIGH RISK",
-  MEDIUM: "MEDIUM RISK",
-  LOW: "LOW RISK",
-  NONE: "LOOKS HEALTHY",
-  UNCONFIRMED: "NOT CONFIRMED YET",
-  RETAKE: "RETAKE PHOTO",
-};
+export function badgeFor(severity, lang) {
+  return tx(lang, "badge_" + severity);
+}
 
 // Colour family per severity (see App.css .tone-*).
 export const TONES = {
@@ -45,52 +39,56 @@ export function isClean(obs) {
  * `cloud` may be null (offline / not run yet). `ctx` is { crop, spray } or,
  * for older callers, just the chosen crop string.
  */
-export function headline(obs, cloud, ctx) {
+export function headline(obs, cloud, ctx, lang = "en") {
   const c = typeof ctx === "string" ? { crop: ctx } : ctx || {};
   if (obs.subject === "not_plant") {
-    return { issue: "No leaf in this photo", severity: "RETAKE", reasons: ["The photo doesn't show a plant."] };
+    return { issue: tx(lang, "hl_no_leaf"), severity: "RETAKE", reasons: [tx(lang, "r_not_plant")] };
   }
   if (obs.subject !== "plant" || obs.photoQuality === "poor") {
-    return { issue: "Photo unclear", severity: "RETAKE", reasons: ["The leaf is too blurry, dark or far away to check."] };
+    return { issue: tx(lang, "hl_unclear"), severity: "RETAKE", reasons: [tx(lang, "r_blurry")] };
   }
   // The independent cloud check can veto a usable photo: if it sees no leaf
   // or can't tell, the first answer isn't trusted on its own.
   if (cloud && (cloud.subject === "not_plant" || cloud.subject === "unclear")) {
     return {
-      issue: cloud.subject === "not_plant" ? "No leaf in this photo" : "Photo unclear",
+      issue: cloud.subject === "not_plant" ? tx(lang, "hl_no_leaf") : tx(lang, "hl_unclear"),
       severity: "RETAKE",
-      reasons: ["The cloud check couldn't see a usable leaf in this photo."],
+      reasons: [tx(lang, "r_cloud_cant")],
     };
   }
-  const raw = ["unknown", "other", "", undefined].includes(c.crop) ? obs.cropGuess : c.crop;
-  const crop = raw && raw.trim() && raw !== "unknown" ? cap(raw.trim()) : null;
+  // Only a crop the user tapped. The eval showed Nano guesses the crop right
+  // just 2 of 16 times, so its guess never goes in the headline.
+  const raw = ["unknown", "other", "", undefined].includes(c.crop) ? "" : c.crop;
+  const crop = raw && raw.trim() && raw !== "unknown" ? cropDisplay(raw.trim(), lang) : null;
   const prefix = crop ? `${crop}: ` : "";
 
   const reasons = [];
   const recentSpray = c.spray === "recent";
   const cloudPriority = !!cloud && cloud.priority === "prioritize_review";
-  if (recentSpray) reasons.push("Sprayed this week. An expert must check before anything new is applied.");
-  if (cloudPriority) reasons.push("The cloud reviewer asked for an expert review.");
+  if (recentSpray) reasons.push(tx(lang, "r_spray"));
+  if (cloudPriority) reasons.push(tx(lang, "r_cloud_priority"));
 
   // Green needs BOTH checks clean: the cloud seeing marks blocks "healthy".
   const cloudClean = !cloud || cloud.extent === "none";
   if (isClean(obs) && cloudClean && !recentSpray && !cloudPriority) {
     return cloud && cloud.subject === "plant"
-      ? { issue: `${prefix}No problem seen`, severity: "NONE", reasons: ["Both checks found no visible problem."] }
-      : { issue: `${prefix}No problem seen yet`, severity: "UNCONFIRMED", reasons: ["Only the first check has run."] };
+      ? { issue: `${prefix}${tx(lang, "hl_no_problem")}`, severity: "NONE", reasons: [tx(lang, "r_both_clean")] }
+      : { issue: `${prefix}${tx(lang, "hl_no_problem_yet")}`, severity: "UNCONFIRMED", reasons: [tx(lang, "r_first_only")] };
   }
 
   const rank = (e) => (e in RANK ? RANK[e] : 2); // unknown extent counts as moderate
   let level = Math.max(rank(obs.extent), cloud ? rank(cloud.extent) : 0);
-  if (level >= 3) reasons.push("Damage covers a large part of the leaf.");
-  else if (level === 2) reasons.push("Damage seen on part of the leaf.");
-  else if (level === 1) reasons.push("Small marks seen.");
+  if (level >= 3) reasons.push(tx(lang, "r_large"));
+  else if (level === 2) reasons.push(tx(lang, "r_moderate"));
+  else if (level === 1) reasons.push(tx(lang, "r_small"));
   if (recentSpray || cloudPriority) level = 3;
 
   let issue = (obs.symptoms || "").trim().replace(/\.+$/, "");
-  if (!issue || issue.toLowerCase() === "none") issue = recentSpray ? "Recent spray recorded" : "Possible problem seen";
+  if (!issue || issue.toLowerCase() === "none")
+    issue = recentSpray ? tx(lang, "hl_recent_spray") : tx(lang, "hl_possible");
+  else issue = cap(shorten(issue, 60));
   const severity = level >= 3 ? "HIGH" : level === 2 ? "MEDIUM" : "LOW";
-  return { issue: prefix + cap(shorten(issue, 60)), severity, reasons };
+  return { issue: prefix + issue, severity, reasons };
 }
 
 /** Cut at a word boundary, never mid-word ("some lea" bug). */
@@ -101,8 +99,8 @@ export function shorten(s, max) {
   return (i > 20 ? cut.slice(0, i) : s.slice(0, max)).replace(/[,\s]+$/, "") + "…";
 }
 
-export function priorityLabel(p) {
-  if (p === "prioritize_review") return "Expert review soon";
-  if (p === "standard_followup") return "Routine follow-up";
-  return "Not set";
+export function priorityLabel(p, lang = "en") {
+  if (p === "prioritize_review") return tx(lang, "priority_expert");
+  if (p === "standard_followup") return tx(lang, "priority_routine");
+  return tx(lang, "priority_unset");
 }

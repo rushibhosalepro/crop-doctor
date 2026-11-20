@@ -1,4 +1,4 @@
-# Crop Doctor — Android MVP
+# Crop Doctor: Android app
 
 Structured crop-health case capture and follow-up for extension workers.
 **Not** a diagnosis engine: the model describes, rules constrain, the trained
@@ -18,7 +18,7 @@ human decides. Full product reasoning: `../crop-doctor-spec.md`.
 
 - Android Studio Ladybug or newer (bundled JDK 17), Android SDK installed.
 - A Google account for the Firebase console.
-- This machine has no Android tooling — open this folder in Android Studio.
+- This machine has no Android tooling. Open this folder in Android Studio.
 
 ## Firebase console setup (do once, ~20 min)
 
@@ -66,7 +66,7 @@ privately and revoked after judging. Never commit `local.properties`.
 ## Run
 
 1. Open `crop-doctor-android` in Android Studio, let Gradle sync.
-   First sync downloads a lot — allow 10+ minutes on slow networks.
+   First sync downloads a lot, so allow 10+ minutes on slow networks.
 2. Run unit tests: `./gradlew :app:testDebugUnitTest` (rules engine safety).
 3. Run the app on a real phone. Emulator works for UI/cloud but has no Nano.
 4. On first launch the status pill shows the on-device model state:
@@ -76,12 +76,12 @@ privately and revoked after judging. Never commit `local.properties`.
 
 - ON: analyze a photo. On a Nano device you get field observations offline;
   verification shows PENDING. On other phones triage fails honestly with an
-  error — the case flow, rules, and queue still work.
+  error. The case flow, rules, and queue still work.
 - OFF: press Verify (or it auto-runs). Timeline shows match or update.
 
 ## Nano phone hunt (India)
 
-Your own phones are ruled out (Narzo 50A, C53 — no AICore). Borrow one of:
+Your own phones are ruled out (Narzo 50A, C53: no AICore). Borrow one of:
 Pixel 9/10, OnePlus 13/15, Xiaomi 15, POCO F7 Ultra/X7 Pro, iQOO 13,
 realme GT 7 Pro, Galaxy S25/S26. One day is enough for video + eval set.
 
@@ -92,9 +92,9 @@ realme GT 7 Pro, Galaxy S25/S26. One day is enough for video + eval set.
 - Bundled Spotted/Healthy samples are real field photos from the root `eval/` folder.
   The Not-plant sample is still a placeholder until a real negative photo
   is added; the eval set itself is real photos only.
-- No cloud follow-up chat (first on the cut list) — one-shot review only.
+- No cloud follow-up chat (first on the cut list). One-shot review only.
 - JSON is prompt-shaped + parsed, not KSP `@Generable` schemas yet. The
   parser falls back to `unclear`, never to a guess.
-- If Android Studio flags any `firebase-ai` import, tell the developer —
+- If Android Studio flags any `firebase-ai` import, tell the developer:
   the SDK is experimental and symbols drift. The versions here match the
   Firebase hybrid docs of Nov 2026.

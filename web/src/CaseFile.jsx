@@ -95,7 +95,7 @@ function FieldStep({ c }) {
         <>
           <dl className="facts">
             <div><dt>Crop</dt><dd>{c.ctx.crop !== "unknown" && c.ctx.crop !== "other" ? c.ctx.crop : o.cropGuess && o.cropGuess !== "unknown" ? `${o.cropGuess} (guess)` : "Unknown"}</dd></div>
-            <div><dt>Where</dt><dd>{o.location || "—"}</dd></div>
+            <div><dt>Where</dt><dd>{o.location || "Not stated"}</dd></div>
             <div><dt>How much</dt><dd>{o.extent || "unknown"}</dd></div>
             <div><dt>Photo</dt><dd>{o.photoQuality === "poor" ? "Unclear" : "Clear enough"}</dd></div>
           </dl>

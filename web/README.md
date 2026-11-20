@@ -1,4 +1,4 @@
-# Crop Doctor — Web proof page (React + Chrome + Gemini Nano)
+# Crop Doctor: web app (React + Chrome + Gemini Nano)
 
 Minimal React app proving the same hybrid pipeline as the Android app,
 runnable on any laptop with Chrome. Purpose: demonstrate real on-device
@@ -70,7 +70,7 @@ firebase deploy --only hosting
 You get `https://crop-doctor-d6c91.web.app`. Before sharing it:
 
 1. Add that domain to your reCAPTCHA Enterprise key's allowed domains
-   (Cloud console). Do NOT add localhost there — localhost uses the debug
+   (Cloud console). Do NOT add localhost there; localhost uses the debug
    token flow instead.
 2. Open the URL in Chrome, Prepare the model once, tap a sample.
 3. Judges pass App Check transparently (invisible captcha). Nothing for

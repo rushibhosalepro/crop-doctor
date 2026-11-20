@@ -1,4 +1,4 @@
-# Crop Doctor — #BuildHybridAI 2026
+# Crop Doctor: #BuildHybridAI 2026
 
 Structured crop-health case capture and follow-up for agricultural extension
 workers. Snap a leaf photo in the field with no signal, get an instant
@@ -33,12 +33,12 @@ Try it in one minute, no sign-up:
 
 ## Repo layout
 
-- `crop-doctor-android/` — the Android app (primary submission). See its
+- `crop-doctor-android/`: the Android app (primary submission). See its
   [README](crop-doctor-android/README.md) for setup and run instructions.
-- `web/` — React web app (live at https://crop-doctor-d6c91.web.app) running
+- `web/`: React web app (live at https://crop-doctor-d6c91.web.app) running
   the same hybrid pipeline with Gemini Nano in Chrome. See its
   [README](web/README.md).
-- `eval/` — 21 real field photos used as the eval smoke
+- `eval/`: 21 real field photos used as the eval smoke
   set (preliminary testing, not agricultural validation).
 
 ## Hybrid design (30 seconds)
@@ -56,7 +56,7 @@ Try it in one minute, no sign-up:
 ## Safety contract (enforced in code, tested)
 
 - The model describes observations only. No disease names, no dosage, no
-  chemical advice, no spray decisions — ever.
+  chemical advice, no spray decisions, ever.
 - "Looks healthy" appears only when the field is clean AND the cloud
   independently agrees AND zero danger flags exist. Offline-only cases can
   never show green.

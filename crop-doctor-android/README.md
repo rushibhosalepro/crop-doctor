@@ -89,7 +89,7 @@ realme GT 7 Pro, Galaxy S25/S26. One day is enough for video + eval set.
 
 - Photos stay on the phone (Firestore holds metadata only). Firebase Storage
   is the next step, not this MVP.
-- Bundled Spotted/Healthy samples are real field photos from eval/.
+- Bundled Spotted/Healthy samples are real field photos from the root `eval/` folder.
   The Not-plant sample is still a placeholder until a real negative photo
   is added; the eval set itself is real photos only.
 - No cloud follow-up chat (first on the cut list) — one-shot review only.

@@ -12,3 +12,6 @@ web/dist/
 # Local screen recordings and scratch images, not part of the submission.
 images/
 generated_images/
+
+# Raw demo recordings, too large for the repo.
+raw/

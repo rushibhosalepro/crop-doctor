@@ -38,7 +38,7 @@ Try it in one minute, no sign-up:
 - `web/` — React web app (live at https://crop-doctor-d6c91.web.app) running
   the same hybrid pipeline with Gemini Nano in Chrome. See its
   [README](web/README.md).
-- `crop-doctor-android/eval/` — 21 real field photos used as the eval smoke
+- `eval/` — 21 real field photos used as the eval smoke
   set (preliminary testing, not agricultural validation).
 
 ## Hybrid design (30 seconds)

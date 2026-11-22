@@ -34,13 +34,32 @@ Try it in one minute, no sign-up:
 5. Switch the language to **मराठी** or **हिन्दी**. All of the app's own text
    changes; the AI's free-text descriptions stay in English.
 
+## Who actually gets the offline check
+
+Gemini Nano runs only on capable hardware: Chrome on a capable desktop or
+laptop, and recent high-end Android phones. Most farmers' mid-range phones
+don't have it. So:
+
+- **Offline on-device check:** extension workers and agri-shop owners with a
+  capable laptop or a newer phone. One of them advises many farmers, so one
+  capable device covers many fields.
+- **Every other phone:** the photo and answers are still saved with no
+  signal, and the check runs in the cloud as soon as signal returns. The
+  farmer gets the answer later, but still before spending money on a spray.
+
+On-device is not faster (median 3.6 s on device vs 3.8 s in the cloud in
+the eval). Its value is working with no signal, keeping the photo private,
+and costing nothing per check.
+
 ## Repo layout
 
-- `crop-doctor-android/`: the Android app (primary submission). See its
-  [README](crop-doctor-android/README.md) for setup and run instructions.
-- `web/`: React web app (live at https://crop-doctor-d6c91.web.app) running
-  the same hybrid pipeline with Gemini Nano in Chrome. See its
-  [README](web/README.md).
+- `web/`: React web app, **the main platform** (live at
+  https://crop-doctor-d6c91.web.app). Tested with real on-device Gemini Nano
+  in Chrome, online and offline. See its [README](web/README.md).
+- `crop-doctor-android/`: the Android app, with the same prompts and rules.
+  It runs on the cloud fallback; its on-device path is built but **not yet
+  tested on a Gemini Nano phone**, because none was available. See its
+  [README](crop-doctor-android/README.md).
 - `eval/`: 21 real field photos used as the eval smoke
   set (preliminary testing, not agricultural validation).
   Results: [eval/RESULTS.md](eval/RESULTS.md). All 21 first checks ran on
@@ -83,5 +102,6 @@ Try it in one minute, no sign-up:
 
 - Live app: https://crop-doctor-d6c91.web.app
 - Demo video: https://youtu.be/mc_QEsn7B_Y
-- Platform: Android + Web (Chrome)
+- Platform: Web (Chrome), main; Android (cloud fallback tested, on-device
+  path not yet tested on a Nano phone)
 - License: Apache 2.0 (see LICENSE)

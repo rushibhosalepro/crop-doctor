@@ -24,13 +24,18 @@ Re-run it yourself: https://crop-doctor-d6c91.web.app/?eval (Chrome with Gemini 
 
 ## What this shows
 
-- **On-device works.** All 21 first checks ran on Gemini Nano in Chrome. Median time was 3.6 s.
-  The very first photo took 25.1 s while the model loaded; after that every photo took 3.4 to 3.9 s.
-- **The two checks agree on the basics.** They never disagreed on whether the photo shows a plant.
-  The amount of damage matched exactly on 8 of 20 photos and was within one level on 17 of 20.
-- **Nano is the more cautious one.** When the amounts differed, Nano rated the damage worse than the
-  cloud in 11 of 12 cases. That is the safer direction before a spray decision, and the app shows the
-  more careful result, but it also means results lean toward caution.
+These numbers measure how well the two models **agree with each other**, not whether either one is
+right. Only expert labels can measure correctness.
+
+- **On-device works, but it isn't faster.** All 21 first checks ran on Gemini Nano in Chrome, median
+  3.6 s, against 3.8 s for the cloud. The very first photo took 25.1 s while the model loaded. The value
+  of on-device is working with no signal, privacy and no cost per check, not speed.
+- **20 of 20, not 21:** the cloud check was skipped for `chikoo-01`, because Nano had already asked for
+  a retake. On the other 20, the two checks agreed every time that the photo showed a plant.
+- **Amount of damage:** the same level on 8 of 20, one level apart on 9, two levels apart on 3.
+- **Nano is the stricter one.** On the 12 photos where the amounts differed by any amount, Nano rated
+  the damage worse than the cloud on 11. That is the safer direction before a spray decision, and the
+  app shows the more careful result, but it also means results lean toward caution.
 - **Crop guessing from the photo alone is poor.** Nano named the right crop for only 2 of 16 photos
   (both maize). It called all three chili photos "tomato" and the cotton photos "vine" and "grape".
   The crop should come from the user's tap, not from the model.

@@ -79,11 +79,6 @@ privately and revoked after judging. Never commit `local.properties`.
   error. The case flow, rules, and queue still work.
 - OFF: press Verify (or it auto-runs). Timeline shows match or update.
 
-## Nano phone hunt (India)
-
-Your own phones are ruled out (Narzo 50A, C53: no AICore). Borrow one of:
-Pixel 9/10, OnePlus 13/15, Xiaomi 15, POCO F7 Ultra/X7 Pro, iQOO 13,
-realme GT 7 Pro, Galaxy S25/S26. One day is enough for video + eval set.
 
 ## Known MVP limits
 

@@ -57,9 +57,9 @@ and costing nothing per check.
   https://crop-doctor-d6c91.web.app). Tested with real on-device Gemini Nano
   in Chrome, online and offline. See its [README](web/README.md).
 - `crop-doctor-android/`: the Android app, with the same prompts and rules.
-  It runs on the cloud fallback; its on-device path is built but **not yet
-  tested on a Gemini Nano phone**, because none was available. See its
-  [README](crop-doctor-android/README.md).
+  It uses `PREFER_ON_DEVICE`, so it runs on Gemini Nano on supported phones
+  and on the cloud fallback everywhere else, and the status pill says which.
+  See its [README](crop-doctor-android/README.md).
 - `eval/`: 21 real field photos used as the eval smoke
   set (preliminary testing, not agricultural validation).
   Results: [eval/RESULTS.md](eval/RESULTS.md). All 21 first checks ran on
@@ -102,6 +102,5 @@ and costing nothing per check.
 
 - Live app: https://crop-doctor-d6c91.web.app
 - Demo video: https://youtu.be/mc_QEsn7B_Y
-- Platform: Web (Chrome), main; Android (cloud fallback tested, on-device
-  path not yet tested on a Nano phone)
+- Platform: Web (Chrome), main; Android
 - License: Apache 2.0 (see LICENSE)

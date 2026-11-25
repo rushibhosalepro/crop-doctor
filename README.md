@@ -92,8 +92,9 @@ and costing nothing per check.
   never show green.
 - Unknown crops and missing context escalate to a human; they never guess.
 - Every escalation explains its reason. Every priority needs worker confirm.
-- **Demo only. No real-world agricultural use before a KVK/SAU agronomist
-  reviews the rules.** See the rules engine and unit tests.
+- **Built as a safety-first prototype.** Field deployment needs a KVK/SAU
+  agronomist to validate the local rules first. See the rules engine and
+  unit tests.
 
 ## Run it
 

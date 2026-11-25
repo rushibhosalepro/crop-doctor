@@ -57,8 +57,10 @@ and costing nothing per check.
   https://crop-doctor-d6c91.web.app). Tested with real on-device Gemini Nano
   in Chrome, online and offline. See its [README](web/README.md).
 - `crop-doctor-android/`: the Android app, with the same prompts and rules.
-  It uses `PREFER_ON_DEVICE`, so it runs on Gemini Nano on supported phones
-  and on the cloud fallback everywhere else, and the status pill says which.
+  On the phones I had, it runs on the cloud fallback, and the status pill
+  shows which path ran. Its on-device path uses the same Firebase AI Logic
+  setup that ran on-device on the web 21 of 21 times, but I haven't had a
+  Gemini Nano phone to run it on yet.
   See its [README](crop-doctor-android/README.md).
 - `eval/`: 21 real field photos used as the eval smoke
   set (preliminary testing, not agricultural validation).

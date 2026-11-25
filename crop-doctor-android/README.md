@@ -82,6 +82,10 @@ privately and revoked after judging. Never commit `local.properties`.
 
 ## Known MVP limits
 
+- The cloud fallback is tested on real phones. The on-device path uses the
+  same Firebase AI Logic setup that ran on-device on the web (21 of 21 in
+  the eval), but hasn't been run on a Gemini Nano phone yet.
+
 - Photos stay on the phone (Firestore holds metadata only). Firebase Storage
   is the next step, not this MVP.
 - Bundled Spotted/Healthy samples are real field photos from the root `eval/` folder.

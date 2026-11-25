@@ -48,7 +48,7 @@ fun StatusPill(s: LangStrings, modelStatus: String) {
 }
 
 @Composable
-fun ObservationCard(s: LangStrings, obs: FieldObservation, servedBy: String) {
+fun ObservationCard(s: LangStrings, lang: AppLang, obs: FieldObservation, servedBy: String) {
     val path = servedByLabel(servedBy, s)
     val clean = obs.subject == "plant" &&
         obs.symptoms.trim().lowercase() in listOf("", "none", "none.") &&
@@ -63,10 +63,10 @@ fun ObservationCard(s: LangStrings, obs: FieldObservation, servedBy: String) {
                 Text(s.nothingWrong)
             } else {
                 if (obs.subject != "plant") Text(s.subjectLabel + obs.subject)
-                if (obs.symptoms.isNotEmpty()) Text(s.seenLabel + obs.symptoms)
-                if (obs.location.isNotEmpty()) Text(s.whereLabel + obs.location)
+                if (obs.symptoms.isNotEmpty()) Text(s.seenLabel + obs.shownSymptoms(lang))
+                if (obs.location.isNotEmpty()) Text(s.whereLabel + obs.shownLocation(lang))
                 Text(s.extentLabel + obs.extent)
-                if (obs.notes.isNotEmpty()) Text(s.notesLabel + obs.notes)
+                if (obs.notes.isNotEmpty()) Text(s.notesLabel + obs.shownNotes(lang))
             }
         }
     }
@@ -116,6 +116,7 @@ fun ProposalCard(
 @Composable
 fun CloudCard(
     s: LangStrings,
+    lang: AppLang,
     report: Report,
     online: Boolean,
     verifying: Boolean,
@@ -139,8 +140,8 @@ fun CloudCard(
                         )
                         else -> Text(s.agreeUpdated)
                     }
-                    Text(cloud.reviewNote)
-                    cloud.questionsForExpert.forEach { Text(s.askExpertPrefix + it) }
+                    Text(cloud.shownReviewNote(lang))
+                    cloud.shownQuestions(lang).forEach { Text(s.askExpertPrefix + it) }
                     Text(s.cloudPriority + priorityLabel(cloud.priority, s))
                 }
                 verifying -> Text(s.verifying)

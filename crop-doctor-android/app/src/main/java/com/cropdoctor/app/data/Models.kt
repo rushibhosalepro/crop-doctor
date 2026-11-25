@@ -30,8 +30,16 @@ data class FieldObservation(
     val location: String = "",
     val extent: String = "unknown", // none | small | moderate | large | unknown
     val photoQuality: String = "unknown", // ok | poor | unknown
-    val notes: String = ""
+    val notes: String = "",
+    // Same free text in Marathi or Hindi, for display only. Rules read the English keys.
+    val symptomsLocal: String = "",
+    val locationLocal: String = "",
+    val notesLocal: String = "",
+    val lang: String = "en" // language the local text was asked for
 ) {
+    fun shownSymptoms(ui: AppLang) = localOr(symptoms, symptomsLocal, ui, lang)
+    fun shownLocation(ui: AppLang) = localOr(location, locationLocal, ui, lang)
+    fun shownNotes(ui: AppLang) = localOr(notes, notesLocal, ui, lang)
     fun isUsableCase(): Boolean = subject == "plant" && photoQuality != "poor"
 }
 
@@ -49,8 +57,24 @@ data class CloudVerification(
     val extent: String = "unknown",
     val reviewNote: String = "",
     val questionsForExpert: List<String> = emptyList(),
-    val priority: String = "standard_followup"
-)
+    val priority: String = "standard_followup",
+    val reviewNoteLocal: String = "",
+    val questionsForExpertLocal: List<String> = emptyList(),
+    val lang: String = "en"
+) {
+    fun shownReviewNote(ui: AppLang) = localOr(reviewNote, reviewNoteLocal, ui, lang)
+    fun shownQuestions(ui: AppLang): List<String> =
+        if (ui.id == lang && ui != AppLang.EN && questionsForExpertLocal.isNotEmpty() &&
+            questionsForExpertLocal.all { isDevanagari(it) }
+        ) questionsForExpertLocal else questionsForExpert
+}
+
+private val DEVANAGARI = Regex("[\u0900-\u097F]")
+fun isDevanagari(s: String) = DEVANAGARI.containsMatchIn(s)
+
+/** Local text only if it was made for this UI language and is really Devanagari. */
+fun localOr(en: String, local: String, ui: AppLang, madeFor: String): String =
+    if (ui != AppLang.EN && ui.id == madeFor && isDevanagari(local)) local else en
 
 /** Result-screen headline. severity: NONE|LOW|MEDIUM|HIGH|UNCONFIRMED|RETAKE. */
 data class Headline(val issue: String, val severity: String, val color: String)
@@ -139,7 +163,9 @@ data class Report(
         var level = maxOf(rank(obs.extent), c?.let { rank(it.extent) } ?: 0)
         if (hasDangerFlags() || cloudSaysPriority) level = 3
         val issue = obs.symptoms.trim().trimEnd('.').let {
-            if (it.isEmpty() || it.lowercase() == "none") s.hlPossible else it.take(48)
+            // Emptiness is judged on the English text; the screen shows the local version.
+            if (it.isEmpty() || it.lowercase() == "none") s.hlPossible
+            else obs.shownSymptoms(lang).trim().trimEnd('.', '\u0964').take(48)
         }
         val (sev, color) = when (level) {
             3 -> "HIGH" to "red"

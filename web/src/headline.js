@@ -9,6 +9,7 @@
 // All fixed text is translated via i18n.js (lang: en|mr|hi). The model's own
 // free text (symptoms) stays in English, as the prompts require.
 import { tx, cropDisplay } from "./i18n.js";
+import { shown } from "./ai.js";
 
 const RANK = { none: 0, small: 1, moderate: 2, large: 3 };
 
@@ -39,7 +40,8 @@ export function isClean(obs) {
  * `cloud` may be null (offline / not run yet). `ctx` is { crop, spray } or,
  * for older callers, just the chosen crop string.
  */
-export function headline(obs, cloud, ctx, lang = "en") {
+// madeFor: the language the case was checked in (its local text is in that language).
+export function headline(obs, cloud, ctx, lang = "en", madeFor = "en") {
   const c = typeof ctx === "string" ? { crop: ctx } : ctx || {};
   if (obs.subject === "not_plant") {
     return { issue: tx(lang, "hl_no_leaf"), severity: "RETAKE", reasons: [tx(lang, "r_not_plant")] };
@@ -86,7 +88,8 @@ export function headline(obs, cloud, ctx, lang = "en") {
   let issue = (obs.symptoms || "").trim().replace(/\.+$/, "");
   if (!issue || issue.toLowerCase() === "none")
     issue = recentSpray ? tx(lang, "hl_recent_spray") : tx(lang, "hl_possible");
-  else issue = cap(shorten(issue, 60));
+  // The rules above used the English text; the screen shows the local version.
+  else issue = cap(shorten(shown(obs, "symptoms", lang, madeFor).trim().replace(/[.\u0964]+$/, ""), 60));
   const severity = level >= 3 ? "HIGH" : level === 2 ? "MEDIUM" : "LOW";
   return { issue: prefix + issue, severity, reasons };
 }

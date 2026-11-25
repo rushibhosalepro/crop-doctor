@@ -7,6 +7,7 @@ import {
   withTimeout,
   fileToDownscaled,
   contextText,
+  localSuffix,
   isUsable,
 } from "./ai.js";
 import { headline, badgeFor, TONES } from "./headline.js";
@@ -122,6 +123,8 @@ export default function App() {
       const img = c0.image;
       const imagePart = { inlineData: { data: img.base64, mimeType: img.mimeType } };
       const context = contextText(c0.ctx);
+      // Language the case was made in: its free text is asked for in it too.
+      const caseLang = c0.lang || "en";
       let field = c0.field;
       try {
         // Step 1: first check. On-device when possible (PREFER_ON_DEVICE).
@@ -134,7 +137,7 @@ export default function App() {
           try {
             const m = runMode === "device" ? models.device : models.prefer;
             const t0 = performance.now();
-            const call = m.generateContent([TRIAGE_PROMPT + context, imagePart]);
+            const call = m.generateContent([TRIAGE_PROMPT + localSuffix(caseLang, ["symptoms", "location", "notes"]) + context, imagePart]);
             const res = runMode === "device" ? await call : await withTimeout(call, 90000, "First check");
             const ms = Math.round(performance.now() - t0);
             const source = res.response.inferenceSource || "unknown";
@@ -142,7 +145,7 @@ export default function App() {
             if (runMode === "device" && source !== "on_device") {
               throw new Error(t("err_device_source") + source);
             }
-            field = { obs: JSON.parse(extractJson(res.response.text())), source, ms };
+            field = { obs: JSON.parse(extractJson(res.response.text())), source, ms, lang: caseLang };
             patch(id, () => ({ field }));
           } catch (e) {
             const msg = errText(e);
@@ -173,12 +176,12 @@ export default function App() {
         try {
           const t0 = performance.now();
           const res = await withTimeout(
-            models.cloud.generateContent([VERIFY_PROMPT + context, imagePart]),
+            models.cloud.generateContent([VERIFY_PROMPT + localSuffix(caseLang, ["reviewNote", "questionsForExpert"]) + context, imagePart]),
             90000,
             "Cloud double-check"
           );
           const ms = Math.round(performance.now() - t0);
-          const cloud = { obs: JSON.parse(extractJson(res.response.text())), source: res.response.inferenceSource || "in_cloud", ms };
+          const cloud = { obs: JSON.parse(extractJson(res.response.text())), source: res.response.inferenceSource || "in_cloud", ms, lang: caseLang };
           patch(id, () => ({ cloud, status: "done", image: null }));
         } catch (e) {
           if (!navigator.onLine) patch(id, () => ({ status: "waiting" }));
@@ -258,6 +261,7 @@ export default function App() {
       image: { base64: img.base64, mimeType: img.mimeType },
       sample: sampleIdx >= 0 ? STR.en.samples[sampleIdx].label : "",
       localOnly: mode === "device",
+      lang,
       status: "running",
       field: null,
       cloud: null,
@@ -449,7 +453,7 @@ export default function App() {
             </div>
             {cases.length === 0 && <p className="hint">{t("hist_empty")}</p>}
             {cases.map((c) => {
-              const h = c.field && c.field.obs ? headline(c.field.obs, c.cloud && c.cloud.obs, c.ctx, lang) : null;
+              const h = c.field && c.field.obs ? headline(c.field.obs, c.cloud && c.cloud.obs, c.ctx, lang, c.field.lang) : null;
               return (
                 <button key={c.id} className={"hist" + (c.id === activeId ? " on" : "")} onClick={() => { setActiveId(c.id); setHistoryOpen(false); }}>
                   {c.thumb ? <img src={c.thumb} alt="" /> : <span className="hist-ph" />}

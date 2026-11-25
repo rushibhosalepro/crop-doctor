@@ -52,7 +52,11 @@ object ReportStore {
                 "location" to report.observation.location,
                 "extent" to report.observation.extent,
                 "photoQuality" to report.observation.photoQuality,
-                "notes" to report.observation.notes
+                "notes" to report.observation.notes,
+                "symptomsLocal" to report.observation.symptomsLocal,
+                "locationLocal" to report.observation.locationLocal,
+                "notesLocal" to report.observation.notesLocal,
+                "lang" to report.observation.lang
             ),
             "proposal" to mapOf(
                 "priority" to report.proposal.priority,
@@ -69,7 +73,10 @@ object ReportStore {
                     "extent" to it.extent,
                     "reviewNote" to it.reviewNote,
                     "questionsForExpert" to it.questionsForExpert,
-                    "priority" to it.priority
+                    "priority" to it.priority,
+                    "reviewNoteLocal" to it.reviewNoteLocal,
+                    "questionsForExpertLocal" to it.questionsForExpertLocal,
+                    "lang" to it.lang
                 )
             },
             "delivered" to report.delivered,
@@ -141,7 +148,11 @@ object ReportStore {
                 location = s(obs, "location", ""),
                 extent = s(obs, "extent", "unknown"),
                 photoQuality = s(obs, "photoQuality", "unknown"),
-                notes = s(obs, "notes", "")
+                notes = s(obs, "notes", ""),
+                symptomsLocal = s(obs, "symptomsLocal", ""),
+                locationLocal = s(obs, "locationLocal", ""),
+                notesLocal = s(obs, "notesLocal", ""),
+                lang = s(obs, "lang", "en")
             ),
             proposal = PriorityProposal(
                 priority = s(prop, "priority", "standard_followup"),
@@ -159,7 +170,11 @@ object ReportStore {
                     reviewNote = s(it, "reviewNote", ""),
                     questionsForExpert = (it["questionsForExpert"] as? List<*>)
                         ?.map { q -> q.toString() } ?: emptyList(),
-                    priority = s(it, "priority", "standard_followup")
+                    priority = s(it, "priority", "standard_followup"),
+                    reviewNoteLocal = s(it, "reviewNoteLocal", ""),
+                    questionsForExpertLocal = (it["questionsForExpertLocal"] as? List<*>)
+                        ?.map { q -> q.toString() } ?: emptyList(),
+                    lang = s(it, "lang", "en")
                 )
             },
             delivered = (m["delivered"] as? Boolean) ?: false,

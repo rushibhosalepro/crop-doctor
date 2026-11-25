@@ -31,8 +31,10 @@ Try it in one minute, no sign-up:
    raises it to high risk and asks for an expert first.
 4. Switch to **On-device only** (Chrome with Nano): the photo is never
    uploaded unless you ask for the cloud double-check.
-5. Switch the language to **मराठी** or **हिन्दी**. All of the app's own text
-   changes; the AI's free-text descriptions stay in English.
+5. Switch the language to **मराठी** or **हिन्दी** and analyze a leaf. The app's
+   text and the AI's description of the leaf both appear in that language.
+   Behind the scenes the AI also answers in English, and the safety rules read
+   only that English answer, so translation can't change a safety decision.
 
 ## Who actually gets the offline check
 

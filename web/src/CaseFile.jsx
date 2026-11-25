@@ -1,4 +1,4 @@
-import { agreement, isUsable } from "./ai.js";
+import { agreement, isUsable, shown } from "./ai.js";
 import { headline, actionFor, badgeFor, TONES, priorityLabel } from "./headline.js";
 import { tx, STR, LOCALES } from "./i18n.js";
 
@@ -52,7 +52,7 @@ function Banner({ c, lang, t }) {
     );
   }
   const cloudObs = c.cloud && c.cloud.obs;
-  const h = headline(fieldObs, cloudObs, c.ctx, lang);
+  const h = headline(fieldObs, cloudObs, c.ctx, lang, c.field.lang);
   const tone = TONES[h.severity];
   const workerSet = c.worker.priority;
   return (
@@ -96,12 +96,12 @@ function FieldStep({ c, lang, t, onRetryField }) {
         <>
           <dl className="facts">
             <div><dt>{t("fact_crop")}</dt><dd>{c.ctx.crop !== "unknown" && c.ctx.crop !== "other" ? (STR[lang].crops[c.ctx.crop] || c.ctx.crop) : o.cropGuess && o.cropGuess !== "unknown" ? `${o.cropGuess} ${t("fact_guess")}` : t("fact_unknown")}</dd></div>
-            <div><dt>{t("fact_where")}</dt><dd>{o.location || t("fact_not_stated")}</dd></div>
+            <div><dt>{t("fact_where")}</dt><dd>{shown(o, "location", lang, c.field.lang) || t("fact_not_stated")}</dd></div>
             <div><dt>{t("fact_howmuch")}</dt><dd>{o.extent || t("extent_unknown_word")}</dd></div>
             <div><dt>{t("fact_photo")}</dt><dd>{o.photoQuality === "poor" ? t("photo_unclear") : t("photo_clear")}</dd></div>
           </dl>
-          <p className="seen"><b>{t("seen")}</b> {o.symptoms || t("seen_nothing")}</p>
-          {o.notes && <p className="note-line">{o.notes}</p>}
+          <p className="seen"><b>{t("seen")}</b> {shown(o, "symptoms", lang, c.field.lang) || t("seen_nothing")}</p>
+          {o.notes && <p className="note-line">{shown(o, "notes", lang, c.field.lang)}</p>}
         </>
       )}
       {st && st.state === "error" && (
@@ -166,11 +166,11 @@ function CloudStep({ c, lang, t, onRetry, onToggleCheck }) {
       )}
       {k && (
         <>
-          <p className="review">{k.reviewNote}</p>
+          <p className="review">{shown(k, "reviewNote", lang, c.cloud.lang)}</p>
           {(k.questionsForExpert || []).length > 0 && (
             <div className="checklist">
               <div className="label">{t("checklist")}</div>
-              {k.questionsForExpert.map((q, i) => (
+              {shown(k, "questionsForExpert", lang, c.cloud.lang).map((q, i) => (
                 <label key={i}>
                   <input type="checkbox" checked={!!c.worker.checks[i]} onChange={() => onToggleCheck(i)} />
                   <span>{q}</span>

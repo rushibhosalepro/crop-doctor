@@ -487,9 +487,9 @@ fun CaseDetail(
     }
     ProposalCard(s, report.proposal, report.workerPriority, onConfirm)
     Spacer(Modifier.height(8.dp))
-    ObservationCard(s, report.observation, report.servedBy)
+    ObservationCard(s, lang, report.observation, report.servedBy)
     Spacer(Modifier.height(8.dp))
-    CloudCard(s, report, online, verifying, onVerify)
+    CloudCard(s, lang, report, online, verifying, onVerify)
     Spacer(Modifier.height(8.dp))
     if (showFollowup) {
         if (!report.delivered) {

@@ -104,7 +104,7 @@ object AiClient {
     ): Pair<FieldObservation, String> {
         val prompt = content {
             image(bitmap)
-            text(TRIAGE_PROMPT + contextBlock(context, note))
+            text(TRIAGE_PROMPT + localSuffix(lang, listOf("symptoms", "location", "notes")) + contextBlock(context, note))
         }
         if (onlyOnDevice) {
             val ready = try {
@@ -116,7 +116,7 @@ object AiClient {
             val response = withTimeout(60_000L) {
                 onDeviceOnlyModel.generateContent(prompt)
             }
-            return parseObservation(response.text.orEmpty(), lang) to response.inferenceSource.toString()
+            return parseObservation(response.text.orEmpty(), lang).copy(lang = lang.id) to response.inferenceSource.toString()
         }
         val onDeviceReady = try {
             FirebaseAIOnDevice.checkStatus() == OnDeviceModelStatus.AVAILABLE
@@ -140,12 +140,25 @@ object AiClient {
     ): Pair<CloudVerification, String> {
         val prompt = content {
             image(bitmap)
-            text(VERIFY_PROMPT + contextBlock(context, note))
+            text(VERIFY_PROMPT + localSuffix(lang, listOf("reviewNote", "questionsForExpert")) + contextBlock(context, note))
         }
         val response = withTimeout(60_000L) {
             verifyModel.generateContent(prompt)
         }
-        return parseVerification(response.text.orEmpty(), lang) to response.inferenceSource.toString()
+        return parseVerification(response.text.orEmpty(), lang).copy(lang = lang.id) to response.inferenceSource.toString()
+    }
+
+    /**
+     * For Marathi or Hindi, ask for the free-text keys AGAIN in that language
+     * (display only). The English keys stay as they are, because the rules
+     * engine reads them. Missing or non-Devanagari local text falls back to English.
+     */
+    private fun localSuffix(lang: AppLang, keys: List<String>): String {
+        val name = when (lang) { AppLang.MR -> "Marathi"; AppLang.HI -> "Hindi"; else -> return "" }
+        return " ALSO add these keys, written in $name in Devanagari script, in short plain words a farmer understands: " +
+            keys.joinToString(", ") { "\"${it}Local\"" } +
+            ". Each one says the same thing as its English key. The same rules apply in $name: never name a disease " +
+            "or pest, never mention a chemical, dose or spray. The English only rule applies to every other key."
     }
 
     private fun contextBlock(context: LeafContext, note: String): String {

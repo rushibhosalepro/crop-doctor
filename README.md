@@ -106,6 +106,6 @@ and costing nothing per check.
 ## Submission
 
 - Live app: https://crop-doctor-d6c91.web.app
-- Demo video: [https://youtu.be/mc_QEsn7B_Y](https://youtu.be/ZB81HNRWOmM)
+- Demo video: https://youtu.be/ZB81HNRWOmM
 - Platform: Web (Chrome), main; Android
 - License: Apache 2.0 (see LICENSE)
